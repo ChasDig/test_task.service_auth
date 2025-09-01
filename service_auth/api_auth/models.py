@@ -1,7 +1,10 @@
 from uuid import uuid4
 
+from django.conf import settings
 from django.utils import timezone
 from django.db import models
+
+from .utils import Cryptor
 
 
 class UUIDMixin(models.Model):
@@ -80,6 +83,13 @@ class User(UUIDMixin, DatetimeStampedMixin):
         null=False,
         help_text="Пароль (хеш)",
     )
+
+    @property
+    def email_dec(self) -> str:
+        return Cryptor.decrypt_str(
+            str_=self.email_enc,
+            password=settings.EMAIL_MASTER_PASSWORD,
+        )
 
     class Meta:
         db_table = 'users"."user'
