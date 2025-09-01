@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  pg_db:
+    image: postgres:17.5
+    container_name: pg_db
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - pg_db_data:/var/lib/postgresql/data
+      - ./pg-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      start_period: 10s
+      interval: 3s
+      timeout: 3s
+      retries: 3
+    networks:
+      - sec_network
+
+volumes:
+  pg_db_data:
+
+networks:
+  sec_network:
+    driver: bridge
