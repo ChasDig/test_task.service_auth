@@ -4,6 +4,7 @@ import dotenv
 
 dotenv.load_dotenv()
 
+# Postgres
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -16,3 +17,15 @@ DATABASES = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Redis
+REDIS_DB = int(os.environ.get("AUTH_REDIS_DB", 0))
+REDIS_MAX_CONNECTION_POOL = int(
+    os.environ.get(
+        "AUTH_REDIS_MAX_CONNECTION_POOL",
+        50,
+    )
+)
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = os.environ.get("REDIS_PORT", 6379)

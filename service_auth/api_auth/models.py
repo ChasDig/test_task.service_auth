@@ -1,10 +1,24 @@
 from uuid import uuid4
+from enum import Enum
 
 from django.conf import settings
 from django.utils import timezone
 from django.db import models
 
 from .utils import Cryptor
+
+
+class UsersRole(Enum):
+    """Группы пользователей."""
+
+    SUPERUSER = "superuser"
+    ADMIN = "admin"
+    USER = "user"
+
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return [(item.value, item.name.capitalize()) for item in cls]
+
 
 
 class UUIDMixin(models.Model):
@@ -83,9 +97,18 @@ class User(UUIDMixin, DatetimeStampedMixin):
         null=False,
         help_text="Пароль (хеш)",
     )
+    role = models.CharField(
+        max_length=32,
+        choices=UsersRole.choices(),
+        null=False,
+        default=UsersRole.USER.value,
+        help_text="Роль",
+    )
 
     @property
     def email_dec(self) -> str:
+        """Дешифровка email."""
+
         return Cryptor.decrypt_str(
             str_=self.email_enc,
             password=settings.EMAIL_MASTER_PASSWORD,
@@ -114,21 +137,21 @@ class User(UUIDMixin, DatetimeStampedMixin):
         )
 
 
-class UserPermissionByRoleAssociation(UUIDMixin, DatetimeStampedMixin):
-    """Модель-связь - Пользователь и Право доступа роли."""
+class UserPermissionByGroupAssociation(UUIDMixin, DatetimeStampedMixin):
+    """Модель-связь - Пользователь и Право доступа по группе."""
 
     user = models.ForeignKey("User", on_delete=models.CASCADE)
-    permission_by_role = models.ForeignKey(
-        "PermissionByRole",
+    permission_by_group = models.ForeignKey(
+        "PermissionByGroup",
         on_delete=models.CASCADE,
     )
 
     class Meta:
-        db_table = 'users"."user_permission_by_role_association'
+        db_table = 'users"."user_permission_by_group_association'
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "permission_by_role"],
-                name="unique_user_role_permission",
+                fields=["user", "permission_by_group"],
+                name="unique_user_group_permission",
                 condition=models.Q(deleted_at__isnull=True),
                 violation_error_message=(
                     "Пользователю уже выданы указанные права"
@@ -139,61 +162,75 @@ class UserPermissionByRoleAssociation(UUIDMixin, DatetimeStampedMixin):
     def __str__(self) -> str:
         return (
             f"UserID={self.user.id}, "
-            f"PermissionByRoleID={self.permission_by_role.id}"
+            f"PermissionByGroupID={self.permission_by_group.id}"
         )
 
 
-class PermissionByRole(UUIDMixin, DatetimeStampedMixin):
-    """Модель - Право доступа по роли."""
+class PermissionByGroup(UUIDMixin, DatetimeStampedMixin):
+    """Модель - Право доступа по группе."""
 
     uri = models.CharField(max_length=256, null=False, help_text="URI ресурса")
     comment = models.CharField(
         max_length=256,
         null=True,
         help_text=(
-            "Комментарий к выделению права для роли "
+            "Комментарий к выделению права для группы "
             "(может использоваться для объяснения причины и т.д.)"
         ),
     )
 
-    role = models.ForeignKey("Role", on_delete=models.CASCADE)
+    group = models.ForeignKey("Group", on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'users"."permission_by_role'
-        verbose_name = "Право доступа по роли"
-        verbose_name_plural = "Права доступа по ролям"
+        db_table = 'users"."permission_by_group'
+        verbose_name = "Право доступа по группе"
+        verbose_name_plural = "Права доступа по группам"
 
         constraints = [
             models.UniqueConstraint(
-                fields=["uri", "role"],
-                name="role_permission_unique",
+                fields=["uri", "group"],
+                name="group_permission_unique",
                 condition=models.Q(deleted_at__isnull=True),
-                violation_error_message="У роли уже имеется доступ к ресурсу",
+                violation_error_message="У группы имеется доступ к ресурсу",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"RoleID={self.role.id}(URI={self.uri})"
+        return f"GroupID={self.group.id}(URI={self.uri})"
 
 
-class Role(UUIDMixin, DatetimeStampedMixin):
-    """Модель - Роль."""
-
-    name = models.CharField(max_length=128, null=False)
+class Group(UUIDMixin, DatetimeStampedMixin):
+    """Модель - Группа."""
+    title = models.CharField(
+        max_length=128,
+        null=False,
+        help_text="Наименование группы (ru)",
+    )
+    alias = models.CharField(
+        max_length=128,
+        null=False,
+        help_text="Alias группы (en)",
+    )
 
     class Meta:
-        db_table = 'users"."role'
-        verbose_name = "Роль"
-        verbose_name_plural = "Роли"
+        db_table = 'users"."group'
+        verbose_name = "Группа"
+        verbose_name_plural = "Группы"
 
         constraints = [
             models.UniqueConstraint(
-                fields=["name"],
-                name="role_name_unique",
+                fields=["title"],
+                name="group_title_unique",
                 condition=models.Q(deleted_at__isnull=True),
-                violation_error_message="Роль с таким наименованием создана",
+                violation_error_message="Группа с таким наименованием создана",
+            ),
+            models.UniqueConstraint(
+                fields=["alias"],
+                name="group_alias_unique",
+                condition=models.Q(deleted_at__isnull=True),
+                violation_error_message="Группа с таким alias создана",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"RoleName={self.name}"
+        return f"GroupTitle={self.title}(Alias={self.alias})"

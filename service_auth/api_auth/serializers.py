@@ -3,7 +3,7 @@ from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 
 from .utils import Cryptor, Hasher
-from .models import User
+from .models import User, UsersRole
 
 class UserWriteSerializer(serializers.ModelSerializer):
     """Serializer - создание Пользователя."""
@@ -44,6 +44,7 @@ class UserWriteSerializer(serializers.ModelSerializer):
             "second_name",
             "last_name",
             "email",
+            "role",
             "email_dec",
             "password_first_try",
             "password_second_try",
@@ -66,7 +67,6 @@ class UserWriteSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         email = validated_data["email"]
-
         user = User(
             first_name=validated_data["first_name"],
             second_name=validated_data.get("second_name"),
@@ -77,6 +77,7 @@ class UserWriteSerializer(serializers.ModelSerializer):
                 password=settings.EMAIL_MASTER_PASSWORD,
             ),
             password_hash=make_password(validated_data["password_first_try"]),
+            role=validated_data.get("role", UsersRole.USER.value),
         )
         user.save()
 

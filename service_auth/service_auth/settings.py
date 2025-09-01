@@ -9,10 +9,10 @@ dotenv.load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get("AUTH_SECRET_KEY")
-DEBUG = True  # TODO:
+DEBUG = os.environ.get("ADMIN_DEBUG", False) == "True"
 
 ALLOWED_HOSTS = os.environ.get(
-    "AUTH_ALLOWED_HOSTS",  # TODO:
+    "AUTH_ALLOWED_HOSTS",
     ["localhost", "127.0.0.1"],
 )
 

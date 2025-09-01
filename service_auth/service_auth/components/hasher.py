@@ -19,4 +19,4 @@ SALT_LENGTH_BYTES = os.environ.get("CRYPTO_SALT_LENGTH_BYTES", 16)
 NONCE_LENGTH_BYTES = os.environ.get("CRYPTO_NONCE_LENGTH_BYTES", 12)
 
 # Список мастер-паролей для Шифрования под разные сущности
-EMAIL_MASTER_PASSWORD = os.environ.get("CRYPTO_EMAIL_MASTER_PASSWORD", "Test") # TODO:
+EMAIL_MASTER_PASSWORD = os.environ.get("CRYPTO_EMAIL_MASTER_PASSWORD")
