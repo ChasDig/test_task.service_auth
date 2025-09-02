@@ -29,9 +29,16 @@ class UserWriteSerializer(serializers.ModelSerializer):
         validators=[
             validate_unique_email,
         ],
+        max_length=128,
     )
-    password_first_try = serializers.CharField(write_only=True)
-    password_second_try = serializers.CharField(write_only=True)
+    password_first_try = serializers.CharField(
+        write_only=True,
+        max_length=128,
+    )
+    password_second_try = serializers.CharField(
+        write_only=True,
+        max_length=128,
+    )
 
     email_dec = serializers.ReadOnlyField(
         help_text="Email пользователя в расшифрованном виде",
@@ -49,12 +56,6 @@ class UserWriteSerializer(serializers.ModelSerializer):
             "password_first_try",
             "password_second_try",
         ]
-
-        write_only_fields = [
-            "password_first_try",
-            "password_second_try",
-        ]
-
         read_only_fields = [
             "email_dec",
         ]
@@ -76,9 +77,21 @@ class UserWriteSerializer(serializers.ModelSerializer):
                 str_=email,
                 password=settings.EMAIL_MASTER_PASSWORD,
             ),
-            password_hash=make_password(validated_data["password_first_try"]),
+            password_hash=make_password(
+                validated_data["password_first_try"],
+            ),
             role=validated_data.get("role", UsersRole.USER.value),
         )
+
         user.save()
 
         return user
+
+
+class LoginSerializer(serializers.Serializer):
+
+    email = serializers.CharField(write_only=True, max_length=128)
+    password = serializers.CharField(
+        write_only=True,
+        max_length=128,
+    )
