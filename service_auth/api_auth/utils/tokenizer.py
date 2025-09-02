@@ -15,6 +15,7 @@ class Tokenizer:
 
     header = {"algorithm": settings.TOKEN_ALGORITHM, "type": "JWT"}
     token_key_template = "{user_id}${user_agent}${token_type}"
+    token_key_sort_template = "{user_id}$*"
 
     @classmethod
     def gen_token(

@@ -111,6 +111,17 @@ class RedisClient:
             logger.error(f"Error delete data from Redis: {ex}")
             raise RedisError()
 
+    async def delete_by_pattern(self, pattern: str):
+        cursor = b"0"
+        while cursor:
+            cursor, keys = await self._client.scan(
+                cursor=cursor,
+                match=pattern,
+                count=100,
+            )
+            if keys:
+                await self._client.delete(*keys)
+
 
 @asynccontextmanager
 async def redis_context_manager() -> AsyncGenerator[RedisClient, Any]:
