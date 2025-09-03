@@ -1,14 +1,38 @@
 from asgiref.sync import async_to_sync
+from django.urls import resolve
 from rest_framework.exceptions import NotAuthenticated
 from rest_framework.permissions import BasePermission
 
 from .utils import Tokenizer
 from .utils.custom_enum import TokenType
 from .models import UsersRole
-from .utils.mixins import TokenizerWorkMixin
+from .utils.custom_exception import TokenDataInvalidError
+from .utils.mixins import TokenizerWorkMixin, UsersPermissionsWorkMixin
 
 
-class CookieTokenPermission(BasePermission, TokenizerWorkMixin):
+class CookieAccessTokenPermission(BasePermission, TokenizerWorkMixin):
+
+    def has_permission(self, request, view) -> bool:
+        try:
+            access_token = request.get_signed_cookie(TokenType.access.name)
+
+        except KeyError:
+            raise NotAuthenticated(detail="token not allowed")
+
+        user_agent = request.META.get("HTTP_USER_AGENT", "not_user_agent")
+        access_token_from_redis = async_to_sync(self._get_token_from_redis)(
+            user_id=str(self._get_user_by_token(access_token).id),
+            user_agent=user_agent,
+            token_type=TokenType.access.name,
+        )
+
+        if access_token_from_redis != access_token:
+            raise NotAuthenticated(detail="token not allowed")
+
+        return True
+
+
+class CookieTokensPermission(BasePermission, TokenizerWorkMixin):
 
     def has_permission(self, request, view) -> bool:
         try:
@@ -19,14 +43,35 @@ class CookieTokenPermission(BasePermission, TokenizerWorkMixin):
 
         user_agent = request.META.get("HTTP_USER_AGENT", "not_user_agent")
 
-        access_token_from_redis = async_to_sync(self._get_token_from_redis)(
-            user_id=str(self._get_user_by_token(access_token).id),
-            user_agent=user_agent,
-            token_type=TokenType.access.name,
-        )
+        try:
+            access_token_from_redis = async_to_sync(
+                self._get_token_from_redis)(
+                user_id=str(self._get_user_by_token(access_token).id),
+                user_agent=user_agent,
+                token_type=TokenType.access.name,
+            )
 
-        if access_token_from_redis != access_token:
-            raise NotAuthenticated(detail="token not allowed")
+            if access_token_from_redis != access_token:
+                raise NotAuthenticated(detail="token not allowed")
+
+        except TokenDataInvalidError:
+            try:
+                refresh_token = request.get_signed_cookie(
+                    TokenType.refresh.name,
+                )
+
+                refresh_token_from_redis = async_to_sync(
+                    self._get_token_from_redis)(
+                    user_id=str(self._get_user_by_token(refresh_token).id),
+                    user_agent=user_agent,
+                    token_type=TokenType.refresh.name,
+                )
+
+            except KeyError:
+                raise NotAuthenticated(detail="token not allowed")
+
+            if refresh_token_from_redis != refresh_token:
+                raise NotAuthenticated(detail="token not allowed")
 
         return True
 
@@ -75,3 +120,26 @@ class ChangeUserRolePermission(BasePermission):
             return False
 
         return True
+
+class UserPermissionByGroup(BasePermission, UsersPermissionsWorkMixin):
+
+    def has_permission(self, request, view) -> bool:
+        access_token = request.get_signed_cookie(TokenType.access.name)
+        access_token_payload = Tokenizer.decode_token(access_token)
+        user_id = access_token_payload.sub
+
+        user_permissions = async_to_sync(
+            self._get_user_permissions_from_redis,
+        )(user_id)
+
+        if not user_permissions:
+            user_permissions = self._get_user_permissions_by_groups(user_id)
+            async_to_sync(
+                self._set_user_permissions_in_redis,
+            )(user_id, user_permissions)
+
+        resolver_m = resolve(request.path_info)
+        if resolver_m.route == user_permissions.get(resolver_m.url_name):
+            return True
+
+        return False

@@ -10,7 +10,7 @@ from .views import (
 
 
 urlpatterns = [
-    path("registry", UserCreateView.as_view(), name="registry"),
+    path("registry", UserCreateView.as_view(), name="registry_user"),
     path(
         "users/delete/<str:pk>/",
         UserSoftDeleteView.as_view(),
@@ -21,11 +21,11 @@ urlpatterns = [
         UserUpdateView.as_view(),
         name="update_user",
     ),
-    path("login", LoginView.as_view(), name="login"),
+    path("login", LoginView.as_view(), name="login_user"),
     path(
         "refresh_tokens",
         RefreshTokenView.as_view(),
         name="refresh_tokens",
     ),
-    path("logout", LogoutView.as_view(), name="logout"),
+    path("logout", LogoutView.as_view(), name="logout_user"),
 ]

@@ -143,10 +143,15 @@ class User(UUIDMixin, DatetimeStampedMixin):
 class UserPermissionByGroupAssociation(UUIDMixin, DatetimeStampedMixin):
     """Модель-связь - Пользователь и Право доступа по группе."""
 
-    user = models.ForeignKey("User", on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        related_name="user_permission_by_group"
+    )
     permission_by_group = models.ForeignKey(
         "PermissionByGroup",
         on_delete=models.CASCADE,
+        related_name="user_permission_by_group",
     )
 
     class Meta:
@@ -173,6 +178,11 @@ class PermissionByGroup(UUIDMixin, DatetimeStampedMixin):
     """Модель - Право доступа по группе."""
 
     uri = models.CharField(max_length=256, null=False, help_text="URI ресурса")
+    uri_name = models.CharField(
+        max_length=256,
+        null=False,
+        help_text="Наименование ресурса",
+    )
     comment = models.CharField(
         max_length=256,
         null=True,
@@ -182,7 +192,11 @@ class PermissionByGroup(UUIDMixin, DatetimeStampedMixin):
         ),
     )
 
-    group = models.ForeignKey("Group", on_delete=models.CASCADE)
+    group = models.ForeignKey(
+        "Group",
+        on_delete=models.CASCADE,
+        related_name="group_permission",
+    )
 
     class Meta:
         db_table = 'users"."permission_by_group'

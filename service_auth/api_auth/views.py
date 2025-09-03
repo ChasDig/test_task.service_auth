@@ -15,9 +15,11 @@ from .utils.mixins import TokenizerWorkMixin
 from .utils.custom_enum import TokenType
 from .utils.custom_exception import UserNotFoundError, AuthDataInvalidError
 from .permissions import (
-    CookieTokenPermission,
+    CookieAccessTokenPermission,
+    CookieTokensPermission,
     IsSelfOrAdminPermission,
     ChangeUserRolePermission,
+    UserPermissionByGroup,
 )
 from .serializers import (
     UserCreateSerializer,
@@ -74,7 +76,7 @@ class LoginView(APIView, TokenizerWorkMixin):
 
 
 class RefreshTokenView(APIView, TokenizerWorkMixin):
-    permission_classes = [CookieTokenPermission]
+    permission_classes = [CookieTokensPermission]
 
     def post(self, request) -> Response:
         refresh_token = request.get_signed_cookie(TokenType.refresh.name)
@@ -91,7 +93,7 @@ class RefreshTokenView(APIView, TokenizerWorkMixin):
 
 class LogoutView(APIView, TokenizerWorkMixin):
     serializer_class = LogoutSerializer
-    permission_classes = [CookieTokenPermission]
+    permission_classes = [CookieAccessTokenPermission]
 
     def post(self, request) -> Response:
         serializer = self.serializer_class(data=request.data)
@@ -112,7 +114,11 @@ class LogoutView(APIView, TokenizerWorkMixin):
 
 
 class UserSoftDeleteView(APIView, TokenizerWorkMixin):
-    permission_classes = [CookieTokenPermission, IsSelfOrAdminPermission]
+    permission_classes = [
+        CookieAccessTokenPermission,
+        IsSelfOrAdminPermission,
+        UserPermissionByGroup,
+    ]
 
     def delete(self, request, pk) -> Response:
         try:
@@ -139,9 +145,10 @@ class UserSoftDeleteView(APIView, TokenizerWorkMixin):
 class UserUpdateView(APIView, TokenizerWorkMixin):
     serializer_class = UserUpdateSerializer
     permission_classes = [
-        CookieTokenPermission,
+        CookieAccessTokenPermission,
         IsSelfOrAdminPermission,
         ChangeUserRolePermission,
+        UserPermissionByGroup,
     ]
 
     def patch(self, request, pk) -> Response:

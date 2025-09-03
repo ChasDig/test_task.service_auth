@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, UTC, timedelta
 
 from django.conf import settings
 from rest_framework.response import Response
@@ -9,7 +10,7 @@ from .custom_enum import TokenType
 from .custom_exception import UserNotFoundError
 from .tokenizer import Tokenizer
 from ..database import redis_context_manager
-from ..models import User
+from ..models import User, PermissionByGroup
 
 logger = logging.getLogger(__name__)
 
@@ -127,3 +128,47 @@ class TokenizerWorkMixin(Tokenizer):
             )
 
             return token_from_redis
+
+
+class UsersPermissionsWorkMixin:
+
+    user_permission_tag = "user_permission"
+
+    async def _get_user_permissions_from_redis(self, user_id: str):
+        async with redis_context_manager() as redis_client:
+            user_permissions = await redis_client.get(
+                key=f"{user_id}&{self.user_permission_tag}",
+                as_dict=True,
+            )
+
+            return user_permissions
+
+    async def _set_user_permissions_in_redis(
+        self,
+        user_id: str,
+        user_permissions: dict[str, str],
+    ) -> None:
+        now_ = datetime.now(UTC)
+        permissions_exp = (
+            now_ + timedelta(minutes=settings.USER_PERMISSION_BY_GROUP_EXP_MIN)
+        ).timestamp()
+
+        async with redis_context_manager() as redis_client:
+            await redis_client.set(
+                key=f"{user_id}&{self.user_permission_tag}",
+                value=user_permissions,
+                ttl=int(permissions_exp - now_.timestamp()),
+            )
+
+    @staticmethod
+    def _get_user_permissions_by_groups(user_id: str) -> dict[str, str]:
+        permissions_by_groups_qs = (
+            PermissionByGroup.objects.filter(
+                user_permission_by_group__user__id=user_id,
+            )
+        )
+
+        return {
+            permission_by_group.uri_name: permission_by_group.uri
+            for permission_by_group in permissions_by_groups_qs
+        }
