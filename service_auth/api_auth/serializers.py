@@ -136,10 +136,12 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     password_first_try = serializers.CharField(
         write_only=True,
         max_length=128,
+        default=None,
     )
     password_second_try = serializers.CharField(
         write_only=True,
         max_length=128,
+        default=None,
     )
 
     email_dec = serializers.ReadOnlyField(
@@ -164,7 +166,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
-        if data["password_first_try"] != data["password_second_try"]:
+        update_pass = (
+            data.get("password_first_try") and data.get("password_second_try")
+        )
+        if (
+            update_pass and
+            data["password_first_try"] != data["password_second_try"]
+        ):
             raise serializers.ValidationError("Пароли не совпадают")
 
         email_hash = Hasher.hash_str(
