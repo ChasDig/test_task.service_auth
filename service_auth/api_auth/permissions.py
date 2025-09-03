@@ -98,6 +98,25 @@ class IsSelfOrAdminPermission(BasePermission):
 
         return False
 
+
+class IsAdminPermission(BasePermission):
+
+    def has_permission(self, request, view) -> bool:
+        try:
+            access_token = request.get_signed_cookie(TokenType.access.name)
+
+        except KeyError:
+            raise NotAuthenticated(detail="token not allowed")
+
+        high_lvl_roles = (UsersRole.ADMIN.value, UsersRole.SUPERUSER.value)
+        access_token_payload = Tokenizer.decode_token(access_token)
+
+        if access_token_payload.user_role in high_lvl_roles:
+            return True
+
+        return False
+
+
 class ChangeUserRolePermission(BasePermission):
 
     def has_permission(self, request, view) -> bool:
