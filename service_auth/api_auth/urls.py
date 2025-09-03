@@ -4,6 +4,7 @@ from .views import (
     UserSoftDeleteView,
     UserUpdateView,
     LoginView,
+    RefreshTokenView,
     LogoutView,
 )
 
@@ -21,5 +22,10 @@ urlpatterns = [
         name="update_user",
     ),
     path("login", LoginView.as_view(), name="login"),
+    path(
+        "refresh_tokens",
+        RefreshTokenView.as_view(),
+        name="refresh_tokens",
+    ),
     path("logout", LogoutView.as_view(), name="logout"),
 ]

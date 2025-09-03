@@ -19,6 +19,9 @@ class UsersRole(Enum):
     def choices(cls) -> list[tuple[str, str]]:
         return [(item.value, item.name.capitalize()) for item in cls]
 
+    @classmethod
+    def high_lvl_users_roles(cls) -> tuple[str, ...]:
+        return cls.SUPERUSER.value, cls.ADMIN.value
 
 
 class UUIDMixin(models.Model):
