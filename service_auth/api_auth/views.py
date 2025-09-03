@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from asgiref.sync import async_to_sync
 
 from .utils import Hasher
-from .utils.mixins import TokenizerWorkMixin
+from .utils.mixins import TokenizerWorkMixin, UsersPermissionsWorkMixin
 from .utils.custom_enum import TokenType
 from .utils.custom_exception import UserNotFoundError, AuthDataInvalidError
 from .permissions import (
@@ -29,13 +29,13 @@ from .serializers import (
     LogoutSerializer,
     GroupCreateSerializer,
     PermissionByGroupCreateSerializer,
-    UserPermissionByGroupAssociationCreateSerializer,
+    UserByGroupAssociationCreateSerializer,
 )
 from .models import (
     User,
     Group,
     PermissionByGroup,
-    UserPermissionByGroupAssociation,
+    UserByGroupAssociation,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,11 @@ class UserCreateView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
 
-class UserSoftDeleteView(APIView, TokenizerWorkMixin):
+class UserSoftDeleteView(
+    APIView,
+    TokenizerWorkMixin,
+    UsersPermissionsWorkMixin,
+):
     permission_classes = [
         CookieAccessTokenPermission,
         (IsSelfOrAdminPermission | UserPermissionByGroup),
@@ -71,6 +75,8 @@ class UserSoftDeleteView(APIView, TokenizerWorkMixin):
         response.delete_cookie(TokenType.access.name)
         response.delete_cookie(TokenType.refresh.name)
 
+        async_to_sync(self._delete_user_permissions_in_redis)(str(user.id))
+
         return response
 
 
@@ -78,7 +84,11 @@ class UserUpdateView(APIView, TokenizerWorkMixin):
     serializer_class = UserUpdateSerializer
     permission_classes = [
         CookieAccessTokenPermission,
-        (IsSelfOrAdminPermission | ChangeUserRolePermission | UserPermissionByGroup),
+        (
+            IsSelfOrAdminPermission |
+            ChangeUserRolePermission |
+            UserPermissionByGroup
+        ),
     ]
 
     def patch(self, request, pk) -> Response:
@@ -102,7 +112,13 @@ class UserUpdateView(APIView, TokenizerWorkMixin):
 
         response = Response(serializer.data, status=status.HTTP_200_OK)
 
-        if old_user.role != updated_user.role:
+        # Если пользователь изменил свою роль - обновляем его токен
+        access_token = request.get_signed_cookie(TokenType.access.name)
+        if (
+            old_user.role != updated_user.role
+        ) and (
+            pk == self._get_user_by_token(access_token).id
+        ):
             user_agent = request.META.get("HTTP_USER_AGENT", "not_user_agent")
             self._refresh_tokens(
                 user=updated_user,
@@ -169,7 +185,7 @@ class RefreshTokenView(APIView, TokenizerWorkMixin):
         return response
 
 
-class LogoutView(APIView, TokenizerWorkMixin):
+class LogoutView(APIView, TokenizerWorkMixin, UsersPermissionsWorkMixin):
     serializer_class = LogoutSerializer
     permission_classes = [CookieAccessTokenPermission]
 
@@ -178,8 +194,10 @@ class LogoutView(APIView, TokenizerWorkMixin):
         serializer.is_valid(raise_exception=True)
 
         access_token = request.get_signed_cookie(TokenType.access.name)
+        user = self._get_user_by_token(token=access_token)
+
         async_to_sync(self._delete_old_tokens_from_redis)(
-            user=self._get_user_by_token(token=access_token),
+            user=user,
             user_agent=request.META.get("HTTP_USER_AGENT", "not_user_agent"),
             all_device=serializer.validated_data.get("all_device", False),
         )
@@ -187,6 +205,8 @@ class LogoutView(APIView, TokenizerWorkMixin):
         response = Response()
         response.delete_cookie(TokenType.access.name)
         response.delete_cookie(TokenType.refresh.name)
+
+        async_to_sync(self._delete_user_permissions_in_redis)(str(user.id))
 
         return response
 
@@ -236,15 +256,15 @@ class PermissionByGroupSoftDeleteView(APIView, TokenizerWorkMixin):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# --- UserPermissionByGroupAssociation --- #
-class UserPermissionByGroupAssociationCreateView(generics.CreateAPIView):
-    serializer_class = UserPermissionByGroupAssociationCreateSerializer
+# --- UserByGroupAssociation --- #
+class UserByGroupAssociationCreateView(generics.CreateAPIView):
+    serializer_class = UserByGroupAssociationCreateSerializer
     permission_classes = [
         CookieAccessTokenPermission,
         (IsAdminPermission | UserPermissionByGroup),
     ]
 
-class UserPermissionByGroupAssociationSoftDeleteView(
+class UserByGroupAssociationSoftDeleteView(
     APIView,
     TokenizerWorkMixin,
 ):
@@ -254,11 +274,11 @@ class UserPermissionByGroupAssociationSoftDeleteView(
     ]
 
     def delete(self, request, pk) -> Response:
-        user_permission_by_g_a = get_object_or_404(
-            UserPermissionByGroupAssociation,
+        user_by_group_association = get_object_or_404(
+            UserByGroupAssociation,
             pk=pk,
         )
-        user_permission_by_g_a.soft_delete()
-        user_permission_by_g_a.save()
+        user_by_group_association.soft_delete()
+        user_by_group_association.save()
 
         return Response(status=status.HTTP_204_NO_CONTENT)

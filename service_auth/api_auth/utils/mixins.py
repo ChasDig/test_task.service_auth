@@ -7,7 +7,7 @@ from asgiref.sync import async_to_sync
 
 from .custom_dataclasses import Tokens
 from .custom_enum import TokenType
-from .custom_exception import UserNotFoundError
+from .custom_exception import UserNotFoundError, RedisError
 from .tokenizer import Tokenizer
 from ..database import redis_context_manager
 from ..models import User, PermissionByGroup
@@ -164,7 +164,7 @@ class UsersPermissionsWorkMixin:
     def _get_user_permissions_by_groups(user_id: str) -> dict[str, str]:
         permissions_by_groups_qs = (
             PermissionByGroup.objects.filter(
-                user_permission_by_group__user__id=user_id,
+                group__user_by_group__user__id=user_id,
             )
         )
 
@@ -172,3 +172,13 @@ class UsersPermissionsWorkMixin:
             permission_by_group.uri_name: permission_by_group.uri
             for permission_by_group in permissions_by_groups_qs
         }
+
+    async def _delete_user_permissions_in_redis(self, user_id: str) -> None:
+        async with redis_context_manager() as redis_client:
+            try:
+                await redis_client.delete(
+                    key=f"{user_id}&{self.user_permission_tag}",
+                )
+
+            except RedisError as ex:
+                logger.error(f"Error delete permission: {ex}")

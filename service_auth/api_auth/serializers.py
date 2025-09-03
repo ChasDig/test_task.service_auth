@@ -4,14 +4,16 @@ from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 
-from .utils import Cryptor, Hasher
+from .utils import Cryptor, Hasher, Tokenizer
 from .models import (
     User,
     UsersRole,
     Group,
     PermissionByGroup,
-    UserPermissionByGroupAssociation,
+    UserByGroupAssociation,
 )
+from .utils.custom_enum import TokenType
+from .utils.custom_exception import TokenDataInvalidError
 
 
 # --- User --- #
@@ -33,6 +35,13 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
         return value
 
+    @staticmethod
+    def validate_role(value: str):
+        if value not in UsersRole.values():
+            raise serializers.ValidationError("Указанная роль не существует")
+
+        return value
+
     email = serializers.EmailField(
         write_only=True,
         validators=[
@@ -47,6 +56,11 @@ class UserCreateSerializer(serializers.ModelSerializer):
     password_second_try = serializers.CharField(
         write_only=True,
         max_length=128,
+    )
+    role = serializers.CharField(
+        validators=[
+            validate_role,
+        ],
     )
 
     email_dec = serializers.ReadOnlyField(
@@ -72,6 +86,25 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if data["password_first_try"] != data["password_second_try"]:
             raise serializers.ValidationError("Пароли не совпадают")
+
+        high_lvl_users_roles = UsersRole.high_lvl_users_roles()
+        if data["role"] in high_lvl_users_roles:
+            try:
+                request = self.context.get("request")
+                access_token = request.get_signed_cookie(TokenType.access.name)
+                access_token_payload = Tokenizer.decode_token(access_token)
+
+            except TokenDataInvalidError:
+                raise serializers.ValidationError(
+                    "Для создания пользователя с указанной ролью требуется "
+                    "авторизоваться"
+                )
+
+            if access_token_payload.user_role not in high_lvl_users_roles:
+                raise serializers.ValidationError(
+                    "У вас не хватает прав для создания пользователя с "
+                    "указанной ролью"
+                )
 
         return data
 
@@ -176,7 +209,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 # --- Auth --- #
 class LoginSerializer(serializers.Serializer):
 
-    email = serializers.CharField(write_only=True, max_length=128)
+    email = serializers.EmailField(write_only=True, max_length=128)
     password = serializers.CharField(
         write_only=True,
         max_length=128,
@@ -239,7 +272,7 @@ class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", ]
 
     def validate(self, data):
-        group = get_object_or_404(PermissionByGroup, pk=data["group_id"])
+        group = get_object_or_404(Group, pk=data["group_id"])
 
         if PermissionByGroup.objects.filter(
             (
@@ -251,6 +284,8 @@ class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
                 "Группа уже имеет указанные права"
             )
 
+        data["group"] = group
+
         return data
 
     def create(self, validated_data):
@@ -258,53 +293,50 @@ class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
             uri=validated_data["uri"],
             uri_name=validated_data["uri_name"],
             comment=validated_data.get("comment"),
-            group_id=validated_data["group_id"],
+            group=validated_data["group"],
         )
         permission_by_group.save()
 
         return permission_by_group
 
 
-# --- UserPermissionByGroupAssociation --- #
-class UserPermissionByGroupAssociationCreateSerializer(
+# --- UserByGroupAssociation --- #
+class UserByGroupAssociationCreateSerializer(
     serializers.ModelSerializer,
 ):
 
     user_id = serializers.CharField()
-    permission_by_group_id = serializers.CharField()
+    group_id = serializers.CharField()
 
     class Meta:
-        model = UserPermissionByGroupAssociation
-        fields = ["id", "user_id", "permission_by_group_id"]
+        model = UserByGroupAssociation
+        fields = ["id", "user_id", "group_id"]
         read_only_fields = ["id", ]
 
     def validate(self, data):
         user = get_object_or_404(User, pk=data["user_id"])
-        permission_by_group = get_object_or_404(
-            PermissionByGroup,
-            pk=data["permission_by_group_id"],
-        )
+        group = get_object_or_404(Group, pk=data["group_id"])
 
-        if UserPermissionByGroupAssociation.objects.filter(
+        if UserByGroupAssociation.objects.filter(
             (
-                Q(user=user) & Q(permission_by_group=permission_by_group)
+                Q(user=user) & Q(group=group)
             ) &
             Q(deleted_at__isnull=True)
         ).exists():
             raise serializers.ValidationError(
-                "Пользователь уже связан с указанной группой прав"
+                "Пользователь уже связан с указанной группой"
             )
 
         data["user"] = user
-        data["permission_by_group"] = permission_by_group
+        data["group"] = group
 
         return data
 
     def create(self, validated_data):
-        user_permission_by_g_a = UserPermissionByGroupAssociation(
+        user_by_group_association = UserByGroupAssociation(
             user=validated_data["user"],
-            permission_by_group=validated_data["permission_by_group"],
+            group=validated_data["group"],
         )
-        user_permission_by_g_a.save()
+        user_by_group_association.save()
 
-        return user_permission_by_g_a
+        return user_by_group_association

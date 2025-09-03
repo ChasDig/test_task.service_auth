@@ -10,8 +10,8 @@ from .views import (
     GroupSoftDeleteView,
     PermissionByGroupCreateView,
     PermissionByGroupSoftDeleteView,
-    UserPermissionByGroupAssociationCreateView,
-    UserPermissionByGroupAssociationSoftDeleteView,
+    UserByGroupAssociationCreateView,
+    UserByGroupAssociationSoftDeleteView,
 )
 
 
@@ -58,15 +58,15 @@ urlpatterns = [
         PermissionByGroupSoftDeleteView.as_view(),
         name="delete_permission_by_group",
     ),
-    # UserPermissionByGroupAssociation
+    # UserByGroupAssociation
     path(
-        "user_permission_by_group_assoc/create",
-        UserPermissionByGroupAssociationCreateView.as_view(),
-        name="create_user_permission_by_group_assoc",
+        "user_by_group_association/create",
+        UserByGroupAssociationCreateView.as_view(),
+        name="create_user_by_group_association",
     ),
     path(
-        "user_permission_by_group_assoc/delete/<str:pk>/",
-        UserPermissionByGroupAssociationSoftDeleteView.as_view(),
-        name="delete_user_permission_by_group_assoc",
+        "user_by_group_association/delete/<str:pk>/",
+        UserByGroupAssociationSoftDeleteView.as_view(),
+        name="delete_user_by_group_association",
     ),
 ]

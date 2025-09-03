@@ -16,6 +16,10 @@ class UsersRole(Enum):
     USER = "user"
 
     @classmethod
+    def values(cls) -> list[str]:
+        return [item.value for item in cls]
+
+    @classmethod
     def choices(cls) -> list[tuple[str, str]]:
         return [(item.value, item.name.capitalize()) for item in cls]
 
@@ -140,38 +144,35 @@ class User(UUIDMixin, DatetimeStampedMixin):
         )
 
 
-class UserPermissionByGroupAssociation(UUIDMixin, DatetimeStampedMixin):
-    """Модель-связь - Пользователь и Право доступа по группе."""
+class UserByGroupAssociation(UUIDMixin, DatetimeStampedMixin):
+    """Модель-связь - Пользователь и Группа."""
 
     user = models.ForeignKey(
         "User",
         on_delete=models.CASCADE,
-        related_name="user_permission_by_group"
+        related_name="user_by_group"
     )
-    permission_by_group = models.ForeignKey(
-        "PermissionByGroup",
+    group = models.ForeignKey(
+        "Group",
         on_delete=models.CASCADE,
-        related_name="user_permission_by_group",
+        related_name="user_by_group",
     )
 
     class Meta:
-        db_table = 'users"."user_permission_by_group_association'
+        db_table = 'users"."user_by_group_association'
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "permission_by_group"],
+                fields=["user", "group"],
                 name="unique_user_group_permission",
                 condition=models.Q(deleted_at__isnull=True),
                 violation_error_message=(
-                    "Пользователю уже выданы указанные права"
+                    "Пользователь уже добавлен в указанную группу"
                 ),
             ),
         ]
 
     def __str__(self) -> str:
-        return (
-            f"UserID={self.user.id}, "
-            f"PermissionByGroupID={self.permission_by_group.id}"
-        )
+        return f"UserID={self.user.id}, GroupID={self.group.id}"
 
 
 class PermissionByGroup(UUIDMixin, DatetimeStampedMixin):
