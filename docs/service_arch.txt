@@ -1,0 +1,24 @@
+@startuml
+
+!define WEB_INTERFACE #FFA07A
+!define AUTH #FFD700
+!define SERVICE #98FB98
+!define STORAGE #87CEEB
+
+rectangle "Client" as client {
+  component "Web-Interface" as web_interface WEB_INTERFACE
+}
+
+rectangle "Backend" as backend {
+  component "Auth_Service" as auth_service SERVICE
+
+  database "AuthPostgreSQLDB" as auth_db STORAGE
+  database "AuthRedisDB" as redis_db STORAGE
+}
+
+web_interface -> auth_service
+auth_service -> auth_db
+auth_service -> redis_db
+auth_service -> web_interface
+
+@enduml
