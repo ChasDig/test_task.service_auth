@@ -87,6 +87,7 @@
 ресурсу и связать пользователя с группой);
 - преимущества: более гибкий вариант, требуется следить в каких группах находится пользователь и какие права есть у 
 этих групп;
+#### Важное замечание(!): Resource.name должен быть равен имени uri (urls.urlpatterns.path.name)
 
 Обычно две системы работают вместе, т.е. при проверке используется **OR** (например, 
 **IsAdminPermission | UserPermissionByGroup**).
@@ -153,6 +154,8 @@ docker compose -f ./docker-compose.yaml -f docker-compose.override.yaml up -d
 |-------------------|-------|------------------------|--------------------|
 | **first_name_1**  | user  | **user_1@example.com** | **passworD_123!**  |
 | **first_name_2**  | admin | **user_2@example.com** | **passworD_1234!** |
+После поднятия проекта User(**first_name_1**) будет иметь доступ к ресурсу по созданию группы: 
+**uri=auth/groups/create**, **name=create_group**
 
 
 ## Дальнейшие доработки:
@@ -168,6 +171,7 @@ docker compose -f ./docker-compose.yaml -f docker-compose.override.yaml up -d
 - Правка скрипта по генерации тестовых данных.
 - К временным меткам о создании, обновлении и удалении добавить кто это сделал (created_by, updated_by, deleted_by).
 - Расширение документации для **view**.
+- Добавление CI.
 
 
 ## Работа с Pre-commit:

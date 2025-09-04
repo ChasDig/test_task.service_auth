@@ -269,7 +269,10 @@ class Resource(UUIDMixin, DatetimeStampedMixin):
     name = models.CharField(
         max_length=256,
         null=False,
-        help_text="Наименование ресурса",
+        help_text=(
+            "Наименование ресурса, должно совпадать с 'name' uri, "
+            "указанным в 'urls.urlpatterns'"
+        ),
     )
     comment = models.CharField(max_length=256, null=True)
 
