@@ -1,12 +1,12 @@
 repos:
-  # Black — автоформатирование Python кода
+  # Black
   - repo: https://github.com/psf/black
     rev: 23.9.1
     hooks:
       - id: black
         language_version: python3.13
 
-  # isort — сортировка импортов
+  # isort
   - repo: https://github.com/PyCQA/isort
     rev: 5.12.0
     hooks:
@@ -14,14 +14,14 @@ repos:
         name: isort (python import sorting)
         language_version: python3.13
 
-  # flake8 — линтер для Python
+  # flake8
   - repo: https://github.com/pycqa/flake8
     rev: 7.1.0
     hooks:
       - id: flake8
         args: ["--max-line-length=88", "--extend-ignore=E203"]
 
-  # mypy — статическая проверка типов
+  # mypy
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.17.1
     hooks:
