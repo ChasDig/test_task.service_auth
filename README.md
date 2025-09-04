@@ -154,6 +154,7 @@ docker compose -f ./docker-compose.yaml -f docker-compose.override.yaml up -d
 |-------------------|-------|------------------------|--------------------|
 | **first_name_1**  | user  | **user_1@example.com** | **passworD_123!**  |
 | **first_name_2**  | admin | **user_2@example.com** | **passworD_1234!** |
+
 После поднятия проекта User(**first_name_1**) будет иметь доступ к ресурсу по созданию группы: 
 **uri=auth/groups/create**, **name=create_group**
 
