@@ -171,6 +171,7 @@ docker compose -f ./docker-compose.yaml -f docker-compose.override.yaml up -d
 - Правка скрипта по генерации тестовых данных.
 - К временным меткам о создании, обновлении и удалении добавить кто это сделал (created_by, updated_by, deleted_by).
 - Расширение документации для **view**.
+- Добавление CI.
 
 
 ## Работа с Pre-commit:
