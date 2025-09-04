@@ -1,6 +1,5 @@
-from typing import Any
-
 from django.urls import resolve
+from django.views import View
 
 from asgiref.sync import async_to_sync
 from rest_framework.exceptions import NotAuthenticated
@@ -17,7 +16,7 @@ from .utils.mixins import TokenizerWorkMixin, UsersPermissionsWorkMixin
 class CookieAccessTokenPermission(BasePermission, TokenizerWorkMixin):
     """Permission - Пользователь имеет AccessToken в Cookies."""
 
-    def has_permission(self, request: Request, view: Any) -> bool:
+    def has_permission(self, request: Request, view: View) -> bool:
         try:
             access_token = request.get_signed_cookie(TokenType.access.name)
 
@@ -40,7 +39,7 @@ class CookieAccessTokenPermission(BasePermission, TokenizerWorkMixin):
 class CookieTokensPermission(BasePermission, TokenizerWorkMixin):
     """Permission - Пользователь имеет Access/RefreshToken в Cookies."""
 
-    def has_permission(self, request: Request, view: Any) -> bool:
+    def has_permission(self, request: Request, view: View) -> bool:
         user_agent = request.META.get("HTTP_USER_AGENT", "not_user_agent")
 
         try:
@@ -80,7 +79,7 @@ class CookieTokensPermission(BasePermission, TokenizerWorkMixin):
 class IsSelfOrAdminPermission(BasePermission):
     """Permission - запрос совершает сам Пользователь или Admin/Superuser."""
 
-    def has_permission(self, request: Request, view: Any) -> bool:
+    def has_permission(self, request: Request, view: View) -> bool:
         try:
             user_id_from_query = view.kwargs["pk"]
             access_token = request.get_signed_cookie(TokenType.access.name)
@@ -102,7 +101,7 @@ class IsSelfOrAdminPermission(BasePermission):
 class IsAdminPermission(BasePermission):
     """Permission - запрос совершает Admin/Superuser."""
 
-    def has_permission(self, request: Request, view: Any) -> bool:
+    def has_permission(self, request: Request, view: View) -> bool:
         try:
             access_token = request.get_signed_cookie(TokenType.access.name)
 
@@ -121,7 +120,7 @@ class IsAdminPermission(BasePermission):
 class ChangeUserRolePermission(BasePermission):
     """Permission - проверка права менять роль Пользователя."""
 
-    def has_permission(self, request: Request, view: Any) -> bool:
+    def has_permission(self, request: Request, view: View) -> bool:
         user_role = request.data.get("role")
         access_token = request.get_signed_cookie(TokenType.access.name)
         access_token_payload = Tokenizer.decode_token(access_token)
@@ -146,7 +145,7 @@ class ChangeUserRolePermission(BasePermission):
 class UserPermissionByGroup(BasePermission, UsersPermissionsWorkMixin):
     """Permission - проверка доступа к ресурсу по группе прав Пользователя."""
 
-    def has_permission(self, request: Request, view: Any) -> bool:
+    def has_permission(self, request: Request, view: View) -> bool:
         access_token = request.get_signed_cookie(TokenType.access.name)
         access_token_payload = Tokenizer.decode_token(access_token)
         user_id = access_token_payload.sub
