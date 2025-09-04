@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
-from uuid import uuid4
 import asyncio
 import logging
+from uuid import uuid4
+from datetime import datetime, timezone
 
 import psycopg
+from psycopg import AsyncConnection
 
 from config import config
 
@@ -32,6 +33,22 @@ class DataForTestsGen:
         )
 
     @property
+    def insert_resource(self) -> str:
+        return (
+            "INSERT INTO users.resource "
+            "(id, created_at, updated_at, uri, name, comment) "
+            "VALUES (%s, %s, %s, %s, %s, %s)"
+        )
+
+    @property
+    def insert_permission_by_group(self) -> str:
+        return (
+            "INSERT INTO users.permission_by_group "
+            "(id, created_at, updated_at, resource_id, group_id) "
+            "VALUES (%s, %s, %s, %s, %s)"
+        )
+
+    @property
     def insert_user_by_group_association(self) -> str:
         return (
             "INSERT INTO users.user_by_group_association "
@@ -39,32 +56,32 @@ class DataForTestsGen:
             "VALUES (%s, %s, %s, %s, %s)"
         )
 
-    @property
-    def insert_permission_by_group(self) -> str:
-        return (
-            "INSERT INTO users.permission_by_group "
-            "(id, created_at, updated_at, uri, uri_name, comment, group_id) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)"
-        )
-
     async def gen(self) -> None:
         async with await psycopg.AsyncConnection.connect(
             config.pg_url_connection
         ) as pg_connect:
-            await self._gen_test_data_for_base_user(pg_connect)
-            loger.info("Gen data for user with role 'User'")
+            try:
+                await self._gen_test_data_for_base_user(pg_connect)
+                loger.info("Gen data for user with role 'User'")
 
-            await self._gen_test_data_for_admin_user(pg_connect)
-            loger.info("Gen data for user with role 'Admin'")
+                await self._gen_test_data_for_admin_user(pg_connect)
+                loger.info("Gen data for user with role 'Admin'")
 
-            await pg_connect.commit()
+                await pg_connect.commit()
+
+            except Exception as ex:
+                loger.error(f"Не удалось загрузить тестовые данные: {ex}")
 
     loger.info("All test data was gen")
 
-    async def _gen_test_data_for_base_user(self, pg_connect):
+    async def _gen_test_data_for_base_user(
+        self,
+        pg_connect: AsyncConnection,
+    ) -> None:
         now_ = datetime.now(timezone.utc).isoformat()
         user_id = str(uuid4())
         group_id = str(uuid4())
+        resource_id = str(uuid4())
         user_by_group_association_id = str(uuid4())
         permission_by_group_id = str(uuid4())
 
@@ -78,9 +95,9 @@ class DataForTestsGen:
                     "first_name_1",
                     "second_name_1",
                     "last_name_1",
-                    "bMvWwYg5wupZjci9CnnLYBCZ9YCthlxQ0Q1VNcWtCab1c7Xq4lU3Kh6nXV9WwditI2eur0jqEcqKygIX",
-                    "945e4a270e0741c046bc76480fe8e57a59bd1b542b6cf81d546711febe6869c2",
-                    "pbkdf2_sha256$1000000$IiuPs3Irpp4JFjk0kNS0O7$bjPd/vSaBn4b8G/Mg8UrEO1q/XdMH1WYNt7Tu/yqfIQ=",
+                    "yFBNQT4p5LIz5DfjoLoV+KsAcj0oXv+eIyE4AS/im8cvB8MmbH7F95HTyXfBDvh4HkwEHJ1JtOjrnvYruaA=",  # noqa: E501
+                    "0fcd35b0d353586ef82fe870022358efaea1b61a5a5553b0ff4b693caed806ef",  # noqa: E501
+                    "pbkdf2_sha256$1000000$0vv4vSqRyLMWp92ZVqoBVB$MFtVct7HAOMsf/ino91g2vY+z7KdlB58Z5tpnVX1R0o=",  # noqa: E501
                     "user",
                 ),
             )
@@ -95,6 +112,27 @@ class DataForTestsGen:
                 ),
             )
             await cursor.execute(
+                self.insert_resource,
+                (
+                    resource_id,
+                    now_,
+                    now_,
+                    "auth/groups/create",
+                    "create_group",
+                    "comment",
+                ),
+            )
+            await cursor.execute(
+                self.insert_permission_by_group,
+                (
+                    permission_by_group_id,
+                    now_,
+                    now_,
+                    resource_id,
+                    group_id,
+                ),
+            )
+            await cursor.execute(
                 self.insert_user_by_group_association,
                 (
                     user_by_group_association_id,
@@ -104,20 +142,11 @@ class DataForTestsGen:
                     group_id,
                 ),
             )
-            await cursor.execute(
-                self.insert_permission_by_group,
-                (
-                    permission_by_group_id,
-                    now_,
-                    now_,
-                    "auth/groups/create",
-                    "create_group",
-                    "comment",
-                    group_id,
-                ),
-            )
 
-    async def _gen_test_data_for_admin_user(self, pg_connect):
+    async def _gen_test_data_for_admin_user(
+        self,
+        pg_connect: AsyncConnection,
+    ) -> None:
         now_ = datetime.now(timezone.utc).isoformat()
         user_id = str(uuid4())
 
@@ -131,9 +160,9 @@ class DataForTestsGen:
                     "first_name_2",
                     "second_name_2",
                     "last_name_2",
-                    "Ej67AK/e5HE6IyEjZEn+SDGD1wtKCq1RcBiblFkr0fx9ruk+AQn1zCxYXRozCD1HpJfl2buwhI6lhQjAZA==",
-                    "27e127563b9ba3f976e53569250fd4b58ee4b96fa7fc9abd9edc5e6952684720",
-                    "pbkdf2_sha256$1000000$OmjTDaIec7yzJJ17XcWiDl$N/RRWa0h/ZL38f6wr+PeWm66a1Oc5BVQZQBawCAHLH0=",
+                    "Bz0DSzleDrM8Yb9auNZQgSWi9oHDAOWcDsyifXSihDCZaY5o/puN42fbd534V7CU9GGIv+xyHWaal6rPe50=",  # noqa: E501
+                    "e8b02b8b69aea861b1ef459e3fcb7a5794b1074c7c2d63c69394bac31e53835f",  # noqa: E501
+                    "pbkdf2_sha256$1000000$qvzOvL9rlG4HipJeHGd1Jt$Uw6K6zYW5vn1MfpGOyUMh3gY86WqgM5ikBLXlqxTel4=",  # noqa: E501
                     "admin",
                 ),
             )

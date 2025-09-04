@@ -1,13 +1,13 @@
 import json
 import logging
-
-from django.conf import settings
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
-from redis.asyncio import ConnectionPool, Redis
-from ..utils.custom_exception import RedisError
+from django.conf import settings
 
+from redis.asyncio import ConnectionPool, Redis
+
+from ..utils.custom_exception import RedisError
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ class RedisClient:
             logger.error(f"Error delete data from Redis: {ex}")
             raise RedisError()
 
-    async def delete_by_pattern(self, pattern: str):
+    async def delete_by_pattern(self, pattern: str) -> None:
         cursor = b"0"
         while cursor:
             cursor, keys = await self._client.scan(

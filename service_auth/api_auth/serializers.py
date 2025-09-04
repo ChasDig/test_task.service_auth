@@ -3,19 +3,22 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.db.models import Q
+
 from rest_framework import serializers
 from rest_framework.generics import get_object_or_404
 
-from .utils import Cryptor, Hasher, Tokenizer
 from .models import (
-    User,
-    UsersRole,
     Group,
     PermissionByGroup,
+    Resource,
+    User,
     UserByGroupAssociation,
+    UsersRole,
 )
+from .utils import Cryptor, Hasher, Tokenizer
 from .utils.custom_enum import TokenType
 from .utils.custom_exception import TokenDataInvalidError
+from .utils.mixins import PasswordCheckerWorker
 
 
 # --- User --- #
@@ -118,22 +121,26 @@ class UserCreateSerializer(serializers.ModelSerializer):
         if data["password_first_try"] != data["password_second_try"]:
             raise serializers.ValidationError("Пароли не совпадают")
 
+        if not PasswordCheckerWorker.check_password(
+            data["password_first_try"]
+        ):
+            raise serializers.ValidationError("Пароль не валиден")
+
         if data["role"] in UsersRole.high_lvl_users_roles():
             try:
                 request = self.context.get("request")
                 access_token = request.get_signed_cookie(TokenType.access.name)
                 access_token_payload = Tokenizer.decode_token(access_token)
 
-            except TokenDataInvalidError:
+            except (TokenDataInvalidError, KeyError):
                 raise serializers.ValidationError(
                     "Для создания пользователя с указанной ролью требуется "
                     "авторизоваться"
                 )
 
             user_role = access_token_payload.user_role
-            if (
-                data["role"] not in
-                UsersRole.get_permissions_on_create(user_role)
+            if data["role"] not in UsersRole.get_permissions_on_create(
+                user_role
             ):
                 raise serializers.ValidationError(
                     "У вас не хватает прав для создания пользователя с "
@@ -171,6 +178,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         user.save()
 
         return user
+
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     """Serializer - обновление Пользователя."""
@@ -226,14 +234,21 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         :return:
         :rtype: dict[str, Any]
         """
-        update_pass = (
-            data.get("password_first_try") and data.get("password_second_try")
+        update_pass = data.get("password_first_try") and data.get(
+            "password_second_try"
         )
         if (
-            update_pass and
-            data["password_first_try"] != data["password_second_try"]
+            update_pass
+            and data["password_first_try"] != data["password_second_try"]
         ):
             raise serializers.ValidationError("Пароли не совпадают")
+
+        pass_is_valid = PasswordCheckerWorker.check_password(
+            data["password_first_try"]
+        )
+        if update_pass and not pass_is_valid:
+            raise serializers.ValidationError("Пароль не валиден")
+        data["password"] = data["password_first_try"]
 
         if new_email := data.get("email"):
             email_hash = Hasher.hash_str(
@@ -243,9 +258,11 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             if (
                 User.objects.filter(
                     email_hash=email_hash,
-                ).exclude(
+                )
+                .exclude(
                     id=data["id"],
-                ).exists()
+                )
+                .exists()
             ):
                 raise serializers.ValidationError(
                     "Пользователь с таким email уже существует",
@@ -296,6 +313,7 @@ class LoginSerializer(serializers.Serializer):
         max_length=128,
     )
 
+
 class LogoutSerializer(serializers.Serializer):
     """Serializer - ре-авторизация Пользователя."""
 
@@ -315,7 +333,9 @@ class GroupCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = ["id", "title", "alias"]
-        read_only_fields = ["id", ]
+        read_only_fields = [
+            "id",
+        ]
 
     def validate(self, data: dict[str, Any]) -> dict[str, Any]:
         """
@@ -329,10 +349,8 @@ class GroupCreateSerializer(serializers.ModelSerializer):
         :rtype: dict[str, Any]
         """
         if Group.objects.filter(
-            (
-                Q(title=data["title"]) | Q(alias=data["alias"])
-            ) &
-            Q(deleted_at__isnull=True)
+            (Q(title=data["title"]) | Q(alias=data["alias"]))
+            & Q(deleted_at__isnull=True)
         ).exists():
             raise serializers.ValidationError(
                 "Группа со схожими параметрами имеется"
@@ -359,23 +377,73 @@ class GroupCreateSerializer(serializers.ModelSerializer):
         return group
 
 
+# --- Resource --- #
+class ResourceCreateSerializer(serializers.ModelSerializer):
+    """Serializer - создание Ресурса."""
+
+    uri = serializers.CharField(max_length=256)
+    name = serializers.CharField(max_length=256)
+    comment = serializers.CharField(max_length=512)
+
+    class Meta:
+        model = Resource
+        fields = ["id", "uri", "name", "comment"]
+        read_only_fields = [
+            "id",
+        ]
+
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Доп. валидация параметров:
+        - Валидация уникальности Ресурса.
+
+        :param data:
+        :type data: dict[str, Any]
+
+        :return:
+        :rtype: dict[str, Any]
+        """
+        if Resource.objects.filter(
+            (Q(uri=data["uri"]) & Q(name=data["name"]))
+            & Q(deleted_at__isnull=True)
+        ).exists():
+            raise serializers.ValidationError("Данный ресурс имеется")
+
+        return data
+
+    def create(self, validated_data: dict[str, Any]) -> Resource:
+        """
+        Создание Ресурса.
+
+        :param validated_data:
+        :type validated_data: dict[str, Any]
+
+        :return:
+        :rtype: Resource
+        """
+        resource = Resource(
+            uri=validated_data["uri"],
+            name=validated_data["name"],
+            comment=validated_data["comment"],
+        )
+        resource.save()
+
+        return resource
+
+
 # --- PermissionByGroup --- #
 class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
     """Serializer - выделение Группе прав к ресурсу."""
 
-    uri = serializers.CharField(max_length=256)
-    uri_name = serializers.CharField(max_length=256)
+    resource_id = serializers.CharField()
     group_id = serializers.CharField()
-    comment = serializers.CharField(
-        max_length=256,
-        allow_null=True,
-        default=None,
-    )
 
     class Meta:
         model = PermissionByGroup
-        fields = ["id", "uri", "uri_name", "group_id", "comment"]
-        read_only_fields = ["id", ]
+        fields = ["id", "group_id", "resource_id"]
+        read_only_fields = [
+            "id",
+        ]
 
     def validate(self, data: dict[str, Any]) -> dict[str, Any]:
         """
@@ -388,19 +456,25 @@ class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
         :return:
         :rtype: dict[str, Any]
         """
-        group = get_object_or_404(Group, pk=data["group_id"])
+        group = get_object_or_404(
+            Group,
+            pk=data["group_id"],
+            deleted_at__isnull=True,
+        )
+        resource = get_object_or_404(
+            Resource,
+            pk=data["resource_id"],
+            deleted_at__isnull=True,
+        )
 
         if PermissionByGroup.objects.filter(
-            (
-                Q(uri=data["uri"]) & Q(group=group)
-            ) &
-            Q(deleted_at__isnull=True)
+            (Q(resource=resource) & Q(group=group))
+            & Q(deleted_at__isnull=True)
         ).exists():
-            raise serializers.ValidationError(
-                "Группа уже имеет указанные права"
-            )
+            raise serializers.ValidationError("Группа уже имеет права")
 
         data["group"] = group
+        data["resource"] = resource
 
         return data
 
@@ -415,9 +489,7 @@ class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
         :rtype: PermissionByGroup
         """
         permission_by_group = PermissionByGroup(
-            uri=validated_data["uri"],
-            uri_name=validated_data["uri_name"],
-            comment=validated_data.get("comment"),
+            resource=validated_data["resource"],
             group=validated_data["group"],
         )
         permission_by_group.save()
@@ -437,7 +509,9 @@ class UserByGroupAssociationCreateSerializer(
     class Meta:
         model = UserByGroupAssociation
         fields = ["id", "user_id", "group_id"]
-        read_only_fields = ["id", ]
+        read_only_fields = [
+            "id",
+        ]
 
     def validate(self, data: dict[str, Any]) -> dict[str, Any]:
         """
@@ -454,10 +528,7 @@ class UserByGroupAssociationCreateSerializer(
         group = get_object_or_404(Group, pk=data["group_id"])
 
         if UserByGroupAssociation.objects.filter(
-            (
-                Q(user=user) & Q(group=group)
-            ) &
-            Q(deleted_at__isnull=True)
+            (Q(user=user) & Q(group=group)) & Q(deleted_at__isnull=True)
         ).exists():
             raise serializers.ValidationError(
                 "Пользователь уже связан с указанной группой"

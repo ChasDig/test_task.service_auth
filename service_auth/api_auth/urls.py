@@ -1,19 +1,21 @@
 from django.urls import path
+
 from .views import (
+    GroupCreateView,
+    GroupSoftDeleteView,
+    LoginView,
+    LogoutView,
+    PermissionByGroupCreateView,
+    PermissionByGroupSoftDeleteView,
+    RefreshTokenView,
+    ResourceCreateView,
+    ResourceSoftDeleteView,
+    UserByGroupAssociationCreateView,
+    UserByGroupAssociationSoftDeleteView,
     UserCreateView,
     UserSoftDeleteView,
     UserUpdateView,
-    LoginView,
-    RefreshTokenView,
-    LogoutView,
-    GroupCreateView,
-    GroupSoftDeleteView,
-    PermissionByGroupCreateView,
-    PermissionByGroupSoftDeleteView,
-    UserByGroupAssociationCreateView,
-    UserByGroupAssociationSoftDeleteView,
 )
-
 
 urlpatterns = [
     # Users
@@ -46,6 +48,17 @@ urlpatterns = [
         "groups/delete/<str:pk>/",
         GroupSoftDeleteView.as_view(),
         name="delete_group",
+    ),
+    # Resource
+    path(
+        "resource/create",
+        ResourceCreateView.as_view(),
+        name="create_resource",
+    ),
+    path(
+        "resource/delete/<str:pk>/",
+        ResourceSoftDeleteView.as_view(),
+        name="delete_resource",
     ),
     # PermissionByGroup
     path(

@@ -3,43 +3,51 @@ from copy import deepcopy
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password
+
+from asgiref.sync import async_to_sync
 from rest_framework import generics, status
 from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
-from asgiref.sync import async_to_sync
 
-from .utils import Hasher
-from .utils.custom_enum import TokenType
-from .utils.mixins import TokenizerWorkMixin, UsersPermissionsWorkMixin
-from .utils.custom_exception import UserNotFoundError, AuthDataInvalidError
-from .permissions import (
-    CookieAccessTokenPermission,
-    CookieTokensPermission,
-    IsSelfOrAdminPermission,
-    ChangeUserRolePermission,
-    UserPermissionByGroup,
-    IsAdminPermission,
-)
-from .serializers import (
-    UserCreateSerializer,
-    UserUpdateSerializer,
-    LoginSerializer,
-    LogoutSerializer,
-    GroupCreateSerializer,
-    PermissionByGroupCreateSerializer,
-    UserByGroupAssociationCreateSerializer,
-)
 from .models import (
-    User,
     Group,
     PermissionByGroup,
+    Resource,
+    User,
     UserByGroupAssociation,
 )
+from .permissions import (
+    ChangeUserRolePermission,
+    CookieAccessTokenPermission,
+    CookieTokensPermission,
+    IsAdminPermission,
+    IsSelfOrAdminPermission,
+    UserPermissionByGroup,
+)
+from .serializers import (
+    GroupCreateSerializer,
+    LoginSerializer,
+    LogoutSerializer,
+    PermissionByGroupCreateSerializer,
+    ResourceCreateSerializer,
+    UserByGroupAssociationCreateSerializer,
+    UserCreateSerializer,
+    UserUpdateSerializer,
+)
+from .utils import Hasher
+from .utils.custom_enum import TokenType
+from .utils.custom_exception import (
+    AuthDataInvalidError,
+    EntityHasRelations,
+    UserNotFoundError,
+)
+from .utils.mixins import TokenizerWorkMixin, UsersPermissionsWorkMixin
 
 logger = logging.getLogger(__name__)
+
 
 # --- User --- #
 class UserCreateView(generics.CreateAPIView):
@@ -63,7 +71,7 @@ class UserSoftDeleteView(
 
     def delete(self, request: Request, pk: str) -> Response:
         try:
-            user = User.objects.get(pk=pk)
+            user = User.objects.get(pk=pk, deleted_at__isnull=True)
 
         except User.DoesNotExist:
             raise UserNotFoundError()
@@ -92,9 +100,9 @@ class UserUpdateView(APIView, TokenizerWorkMixin):
     permission_classes = [
         CookieAccessTokenPermission,
         (
-            IsSelfOrAdminPermission |
-            ChangeUserRolePermission |
-            UserPermissionByGroup
+            IsSelfOrAdminPermission
+            | ChangeUserRolePermission
+            | UserPermissionByGroup
         ),
     ]
 
@@ -103,7 +111,7 @@ class UserUpdateView(APIView, TokenizerWorkMixin):
             raise UserNotFoundError()
 
         try:
-            user = User.objects.get(pk=pk)
+            user = User.objects.get(pk=pk, deleted_at__isnull=True)
             old_user = deepcopy(user)
 
         except User.DoesNotExist:
@@ -121,9 +129,7 @@ class UserUpdateView(APIView, TokenizerWorkMixin):
 
         # Если пользователь изменил свою роль - обновляем его токен
         access_token = request.get_signed_cookie(TokenType.access.name)
-        if (
-            old_user.role != updated_user.role
-        ) and (
+        if (old_user.role != updated_user.role) and (
             pk == self._get_user_by_token(access_token).id
         ):
             user_agent = request.META.get("HTTP_USER_AGENT", "not_user_agent")
@@ -167,6 +173,7 @@ class LoginView(APIView, TokenizerWorkMixin):
                     str_=email,
                     password=settings.EMAIL_MASTER_PASSWORD,
                 ),
+                deleted_at__isnull=True,
             )
 
         except User.DoesNotExist:
@@ -244,11 +251,58 @@ class GroupSoftDeleteView(APIView, TokenizerWorkMixin):
     ]
 
     def delete(self, request: Request, pk: str) -> Response:
-        group = get_object_or_404(Group, pk=pk)
+        group = get_object_or_404(Group, pk=pk, deleted_at__isnull=True)
+        if self._has_active_relations(group=group):
+            raise EntityHasRelations()
+
         group.soft_delete()
         group.save()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @staticmethod
+    def _has_active_relations(group: Group) -> bool:
+        return PermissionByGroup.objects.filter(
+            group=group,
+            deleted_at__isnull=True,
+        ).exists()
+
+
+# --- Resource --- #
+class ResourceCreateView(generics.CreateAPIView):
+    """View - создание Ресурса."""
+
+    serializer_class = ResourceCreateSerializer
+    permission_classes = [
+        CookieAccessTokenPermission,
+        (IsAdminPermission | UserPermissionByGroup),
+    ]
+
+
+class ResourceSoftDeleteView(APIView, TokenizerWorkMixin):
+    """View - мягкое удаление Ресурса."""
+
+    permission_classes = [
+        CookieAccessTokenPermission,
+        (IsAdminPermission | UserPermissionByGroup),
+    ]
+
+    def delete(self, request: Request, pk: str) -> Response:
+        resource = get_object_or_404(Resource, pk=pk, deleted_at__isnull=True)
+        if self._has_active_relations(resource=resource):
+            raise EntityHasRelations()
+
+        resource.soft_delete()
+        resource.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @staticmethod
+    def _has_active_relations(resource: Resource) -> bool:
+        return PermissionByGroup.objects.filter(
+            resource=resource,
+            deleted_at__isnull=True,
+        ).exists()
 
 
 # --- PermissionByGroup --- #
@@ -261,6 +315,7 @@ class PermissionByGroupCreateView(generics.CreateAPIView):
         (IsAdminPermission | UserPermissionByGroup),
     ]
 
+
 class PermissionByGroupSoftDeleteView(APIView, TokenizerWorkMixin):
     """View - мягкое удаление у Группы права доступа к ресурсу."""
 
@@ -270,7 +325,12 @@ class PermissionByGroupSoftDeleteView(APIView, TokenizerWorkMixin):
     ]
 
     def delete(self, request: Request, pk: str) -> Response:
-        permission_by_group = get_object_or_404(PermissionByGroup, pk=pk)
+        permission_by_group = get_object_or_404(
+            PermissionByGroup,
+            pk=pk,
+            deleted_at__isnull=True,
+        )
+
         permission_by_group.soft_delete()
         permission_by_group.save()
 
@@ -287,6 +347,7 @@ class UserByGroupAssociationCreateView(generics.CreateAPIView):
         (IsAdminPermission | UserPermissionByGroup),
     ]
 
+
 class UserByGroupAssociationSoftDeleteView(
     APIView,
     TokenizerWorkMixin,
@@ -302,6 +363,7 @@ class UserByGroupAssociationSoftDeleteView(
         user_by_group_association = get_object_or_404(
             UserByGroupAssociation,
             pk=pk,
+            deleted_at__isnull=True,
         )
         user_by_group_association.soft_delete()
         user_by_group_association.save()

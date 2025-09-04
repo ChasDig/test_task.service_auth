@@ -4,7 +4,9 @@ repos:
     rev: 23.9.1
     hooks:
       - id: black
-        language_version: python3.13
+        language_version: python3.12
+        args: ["--exclude", "/(migrations|venv|load_test_data)/"]
+        exclude: "service_auth/api_auth/migrations/"
 
   # isort
   - repo: https://github.com/PyCQA/isort
@@ -13,18 +15,28 @@ repos:
       - id: isort
         name: isort (python import sorting)
         language_version: python3.13
+        exclude: "service_auth/api_auth/migrations/"
 
   # flake8
   - repo: https://github.com/pycqa/flake8
     rev: 7.1.0
     hooks:
       - id: flake8
-        args: ["--max-line-length=88", "--extend-ignore=E203"]
+        args: [
+          "--max-line-length=79",
+          "--extend-ignore=E203,W503",
+          "--exclude=*/migrations/*,venv,load_test_data,__pycache__"  # ← изменил
+        ]
+        exclude: "service_auth/api_auth/migrations/"
 
   # mypy
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.17.1
     hooks:
       - id: mypy
-        args: ["--ignore-missing-imports"]
+        args: [
+          "--ignore-missing-imports",
+          "--exclude", "(migrations|venv|load_test_data)"
+        ]
         language_version: python3.13
+        exclude: "service_auth/api_auth/migrations/"

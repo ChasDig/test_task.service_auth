@@ -1,9 +1,9 @@
-from uuid import uuid4
 from enum import Enum
+from uuid import uuid4
 
 from django.conf import settings
-from django.utils import timezone
 from django.db import models
+from django.utils import timezone
 
 from .utils import Cryptor
 
@@ -57,8 +57,8 @@ class UsersRole(Enum):
         :rtype: tuple[str, ...]
         """
         permissions_on_create = {
-            cls.USER.value: (cls.USER.value, ),
-            cls.ADMIN.value: (cls.USER.value,cls.ADMIN.value),
+            cls.USER.value: (cls.USER.value,),
+            cls.ADMIN.value: (cls.USER.value, cls.ADMIN.value),
             cls.SUPERUSER.value: (
                 cls.USER.value,
                 cls.ADMIN.value,
@@ -205,9 +205,7 @@ class UserByGroupAssociation(UUIDMixin, DatetimeStampedMixin):
     """Модель-связь - Пользователь и Группа."""
 
     user = models.ForeignKey(
-        "User",
-        on_delete=models.CASCADE,
-        related_name="user_by_group"
+        "User", on_delete=models.CASCADE, related_name="user_by_group"
     )
     group = models.ForeignKey(
         "Group",
@@ -233,23 +231,13 @@ class UserByGroupAssociation(UUIDMixin, DatetimeStampedMixin):
 
 
 class PermissionByGroup(UUIDMixin, DatetimeStampedMixin):
-    """Модель - Право доступа по группе."""
+    """Модель - Право доступа к ресурсу по группе."""
 
-    uri = models.CharField(max_length=256, null=False, help_text="URI ресурса")
-    uri_name = models.CharField(
-        max_length=256,
-        null=False,
-        help_text="Наименование ресурса",
+    resource = models.ForeignKey(
+        "Resource",
+        on_delete=models.CASCADE,
+        related_name="group_permission",
     )
-    comment = models.CharField(
-        max_length=256,
-        null=True,
-        help_text=(
-            "Комментарий к выделению права для группы "
-            "(может использоваться для объяснения причины и т.д.)"
-        ),
-    )
-
     group = models.ForeignKey(
         "Group",
         on_delete=models.CASCADE,
@@ -263,19 +251,49 @@ class PermissionByGroup(UUIDMixin, DatetimeStampedMixin):
 
         constraints = [
             models.UniqueConstraint(
-                fields=["uri", "group"],
-                name="group_permission_unique",
+                fields=["resource", "group"],
+                name="group_resource_permission_unique",
                 condition=models.Q(deleted_at__isnull=True),
                 violation_error_message="У группы имеется доступ к ресурсу",
             ),
         ]
 
     def __str__(self) -> str:
-        return f"GroupID={self.group.id}(URI={self.uri})"
+        return f"GroupID={self.group.id}, ResourceID={self.resource.id}"
+
+
+class Resource(UUIDMixin, DatetimeStampedMixin):
+    """Модель - Ресурс."""
+
+    uri = models.CharField(max_length=256, null=False, help_text="URI ресурса")
+    name = models.CharField(
+        max_length=256,
+        null=False,
+        help_text="Наименование ресурса",
+    )
+    comment = models.CharField(max_length=256, null=True)
+
+    class Meta:
+        db_table = 'users"."resource'
+        verbose_name = "Ресурс"
+        verbose_name_plural = "Ресурсы"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["uri", "name"],
+                name="resource_unique",
+                condition=models.Q(deleted_at__isnull=True),
+                violation_error_message="Указанный ресурс имеется",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"ResourceName={self.name}(URI={self.uri})"
 
 
 class Group(UUIDMixin, DatetimeStampedMixin):
     """Модель - Группа."""
+
     title = models.CharField(
         max_length=128,
         null=False,

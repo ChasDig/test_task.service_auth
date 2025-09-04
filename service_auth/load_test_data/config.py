@@ -21,7 +21,10 @@ class Settings(BaseSettings):
         default="auth_user",
         alias="AUTH_POSTGRES_USER",
     )
-    pg_password: str = Field(default="auth_pass_123", alias="AUTH_POSTGRES_PASSWORD")
+    pg_password: str = Field(
+        default="auth_pass_123",
+        alias="AUTH_POSTGRES_PASSWORD",
+    )
     pg_host: str = Field(default="127.0.0.1", alias="POSTGRES_HOST")
     pg_port: int = Field(default=5432, alias="POSTGRES_PORT")
 

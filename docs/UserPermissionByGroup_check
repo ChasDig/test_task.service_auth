@@ -1,0 +1,68 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36" version="28.1.2">
+  <diagram name="Страница — 1" id="YXLypALxhx2eH4zryi9N">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="87yNmwxThtRNStaP3xlQ-1" value="UserPermissionByGroup (Проверка)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="160" y="120" width="400" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="87yNmwxThtRNStaP3xlQ-4" target="87yNmwxThtRNStaP3xlQ-12">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="180" y="360" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="200" y="240" />
+              <mxPoint x="200" y="640" />
+              <mxPoint x="360" y="640" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="87yNmwxThtRNStaP3xlQ-4" target="87yNmwxThtRNStaP3xlQ-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-4" value="У пользователя есть список разрешенных ресурсов в кеше (Redis)" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="252.5" y="160" width="215" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="87yNmwxThtRNStaP3xlQ-6" target="87yNmwxThtRNStaP3xlQ-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-6" value="Запросить все разрешенные ресурсы пользователя по его группам из БД (Postgres)" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="320" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-7" value="Да" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="180" y="200" width="70" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-8" value="Нет" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="467.5" y="200" width="70" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="87yNmwxThtRNStaP3xlQ-9" target="87yNmwxThtRNStaP3xlQ-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-9" value="Сохранение полученных доступов пользователя к ресурсам в кеше (Redis)" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="480" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="87yNmwxThtRNStaP3xlQ-12" target="87yNmwxThtRNStaP3xlQ-15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="87yNmwxThtRNStaP3xlQ-12" target="87yNmwxThtRNStaP3xlQ-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-12" value="Запрашиваемый&amp;nbsp;&lt;div&gt;ресурс есть&amp;nbsp;&lt;div&gt;среди доступеных&amp;nbsp;&lt;/div&gt;&lt;div&gt;пользователю?&lt;/div&gt;&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="252.5" y="680" width="215" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-14" value="Запретить" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="840" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-15" value="Пропустить" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="840" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-18" value="Нет" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="467.5" y="720" width="70" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="87yNmwxThtRNStaP3xlQ-19" value="Да" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="180" y="720" width="70" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

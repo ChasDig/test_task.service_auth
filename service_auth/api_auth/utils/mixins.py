@@ -1,16 +1,17 @@
 import logging
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 
 from django.conf import settings
-from rest_framework.response import Response
-from asgiref.sync import async_to_sync
 
+from asgiref.sync import async_to_sync
+from rest_framework.response import Response
+
+from ..database import redis_context_manager
+from ..models import Resource, User
 from .custom_dataclasses import Tokens
 from .custom_enum import TokenType
-from .custom_exception import UserNotFoundError, RedisError
+from .custom_exception import RedisError, UserNotFoundError
 from .tokenizer import Tokenizer
-from ..database import redis_context_manager
-from ..models import User, PermissionByGroup
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ class TokenizerWorkMixin(Tokenizer):
     async def _delete_old_tokens_from_redis(
         user: User,
         user_agent: str = "not_user_agent",
-        all_device: bool = False
+        all_device: bool = False,
     ) -> None:
         """
         Удаление токенов в Redis.
@@ -156,7 +157,10 @@ class TokenizerWorkMixin(Tokenizer):
         :rtype: User
         """
         try:
-            return User.objects.get(pk=str(Tokenizer.decode_token(token).sub))
+            return User.objects.get(
+                pk=str(Tokenizer.decode_token(token).sub),
+                deleted_at__isnull=True,
+            )
 
         except User.DoesNotExist:
             raise UserNotFoundError()
@@ -166,7 +170,7 @@ class TokenizerWorkMixin(Tokenizer):
         user_id: str,
         user_agent: str,
         token_type: str,
-    ) -> str | None:
+    ) -> dict[str, str | int] | str | None:
         """
         Получение токена из Redis.
 
@@ -178,7 +182,7 @@ class TokenizerWorkMixin(Tokenizer):
         :type user_agent: str
 
         :return:
-        :rtype: str | None
+        :rtype: dict[str, str | int] | str | None
         """
         async with redis_context_manager() as redis_client:
             token_from_redis = await redis_client.get(
@@ -200,7 +204,7 @@ class UsersPermissionsWorkMixin:
     async def _get_user_permissions_from_redis(
         self,
         user_id: str,
-    ) -> dict[str, str]:
+    ) -> dict[str, str | int] | str | None:
         """
         Получение прав доступа Пользователя из Redis.
 
@@ -208,7 +212,7 @@ class UsersPermissionsWorkMixin:
         :type user_id: str
 
         :return:
-        :rtype: dict[str, str]
+        :rtype: dict[str, str | int] | str | None
         """
         async with redis_context_manager() as redis_client:
             user_permissions = await redis_client.get(
@@ -242,7 +246,7 @@ class UsersPermissionsWorkMixin:
         async with redis_context_manager() as redis_client:
             await redis_client.set(
                 key=f"{user_id}&{self.user_permission_tag}",
-                value=user_permissions,
+                value=user_permissions,  # type: ignore
                 ttl=int(permissions_exp - now_.timestamp()),
             )
 
@@ -257,15 +261,13 @@ class UsersPermissionsWorkMixin:
         :return:
         :rtype: dict[str, str]
         """
-        permissions_by_groups_qs = (
-            PermissionByGroup.objects.filter(
-                group__user_by_group__user__id=user_id,
-            )
+        resources_qs = Resource.objects.filter(
+            group_permission__group__user_by_group__user__id=user_id,
+            group_permission__group__user_by_group__deleted_at__isnull=True,  # noqa: E501
         )
 
         return {
-            permission_by_group.uri_name: permission_by_group.uri
-            for permission_by_group in permissions_by_groups_qs
+            resource_qs.name: resource_qs.uri for resource_qs in resources_qs
         }
 
     async def _delete_user_permissions_in_redis(self, user_id: str) -> None:
@@ -286,3 +288,17 @@ class UsersPermissionsWorkMixin:
 
             except RedisError as ex:
                 logger.error(f"Error delete permission: {ex}")
+
+
+class PasswordCheckerWorker:
+    """Worker - проверка пароля."""
+
+    @staticmethod
+    def check_password(value: str) -> bool:
+        if len(value) < 8:
+            return False
+
+        elif not any(s.isupper() for s in value):
+            return False
+
+        return True

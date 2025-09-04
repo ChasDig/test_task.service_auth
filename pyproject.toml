@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 79
-target-version = ["py313"]
+target-version = ["py312"]
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -30,6 +30,9 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 strict_optional = true
 exclude = '(/venv/|/migrations/|/build/|/dist/|\.git/|/load_test_data/|)'
+disable_error_code = [
+    "prop-decorator",
+]
 
 [tool.flake8]
 max-line-length = 79
