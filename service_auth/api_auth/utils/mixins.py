@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class TokenizerWorkMixin(Tokenizer):
+    """Work - mixin по работе с Tokenizer."""
 
     def _refresh_tokens(
         self,
@@ -23,6 +24,19 @@ class TokenizerWorkMixin(Tokenizer):
         response: Response,
         user_agent: str = "not_user_agent",
     ) -> Tokens:
+        """
+        Обновление токенов в Redis и Cookies.
+
+        :param user:
+        :type user: User
+        :param response:
+        :type response: Response
+        :param user_agent:
+        :type user_agent: str
+
+        :return:
+        :rtype: str | Any
+        """
         tokens = Tokenizer.gen_tokens(
             user_id=str(user.id),
             user_role=user.role,
@@ -54,6 +68,19 @@ class TokenizerWorkMixin(Tokenizer):
         user: User,
         user_agent: str = "not_user_agent",
     ) -> None:
+        """
+        Сохранение токенов в Redis.
+
+        :param user:
+        :type user: User
+        :param tokens:
+        :type tokens: Tokens
+        :param user_agent:
+        :type user_agent: str
+
+        :return:
+        :rtype: None
+        """
         for_gen, user_id = f"{user.last_name} / {user_agent}", str(user.id)
 
         async with redis_context_manager() as redis_client:
@@ -85,6 +112,19 @@ class TokenizerWorkMixin(Tokenizer):
         user_agent: str = "not_user_agent",
         all_device: bool = False
     ) -> None:
+        """
+        Удаление токенов в Redis.
+
+        :param user:
+        :type user: User
+        :param all_device: Флаг - удалять все токены.
+        :type all_device: bool
+        :param user_agent:
+        :type user_agent: str
+
+        :return:
+        :rtype: None
+        """
         if all_device:
             pattern = Tokenizer.token_key_sort_template.format(
                 user_id=str(user.id),
@@ -106,6 +146,15 @@ class TokenizerWorkMixin(Tokenizer):
 
     @staticmethod
     def _get_user_by_token(token: str) -> User:
+        """
+        Получение Пользователя по токену.
+
+        :param token:
+        :type token: str
+
+        :return:
+        :rtype: User
+        """
         try:
             return User.objects.get(pk=str(Tokenizer.decode_token(token).sub))
 
@@ -118,6 +167,19 @@ class TokenizerWorkMixin(Tokenizer):
         user_agent: str,
         token_type: str,
     ) -> str | None:
+        """
+        Получение токена из Redis.
+
+        :param user_id:
+        :type user_id: str
+        :param token_type:
+        :type token_type: str
+        :param user_agent:
+        :type user_agent: str
+
+        :return:
+        :rtype: str | None
+        """
         async with redis_context_manager() as redis_client:
             token_from_redis = await redis_client.get(
                 key=Tokenizer.token_key_template.format(
@@ -131,10 +193,23 @@ class TokenizerWorkMixin(Tokenizer):
 
 
 class UsersPermissionsWorkMixin:
+    """Work - mixin по работе с правками доступа Пользователя."""
 
     user_permission_tag = "user_permission"
 
-    async def _get_user_permissions_from_redis(self, user_id: str):
+    async def _get_user_permissions_from_redis(
+        self,
+        user_id: str,
+    ) -> dict[str, str]:
+        """
+        Получение прав доступа Пользователя из Redis.
+
+        :param user_id:
+        :type user_id: str
+
+        :return:
+        :rtype: dict[str, str]
+        """
         async with redis_context_manager() as redis_client:
             user_permissions = await redis_client.get(
                 key=f"{user_id}&{self.user_permission_tag}",
@@ -148,6 +223,17 @@ class UsersPermissionsWorkMixin:
         user_id: str,
         user_permissions: dict[str, str],
     ) -> None:
+        """
+        Сохранение прав доступа Пользователя в Redis.
+
+        :param user_id:
+        :type user_id: str
+        :param user_permissions:
+        :type user_permissions: dict[str, str]
+
+        :return:
+        :rtype: None
+        """
         now_ = datetime.now(UTC)
         permissions_exp = (
             now_ + timedelta(minutes=settings.USER_PERMISSION_BY_GROUP_EXP_MIN)
@@ -162,6 +248,15 @@ class UsersPermissionsWorkMixin:
 
     @staticmethod
     def _get_user_permissions_by_groups(user_id: str) -> dict[str, str]:
+        """
+        Получение прав доступа Пользователя по Группам из Postgres.
+
+        :param user_id:
+        :type user_id: str
+
+        :return:
+        :rtype: dict[str, str]
+        """
         permissions_by_groups_qs = (
             PermissionByGroup.objects.filter(
                 group__user_by_group__user__id=user_id,
@@ -174,6 +269,15 @@ class UsersPermissionsWorkMixin:
         }
 
     async def _delete_user_permissions_in_redis(self, user_id: str) -> None:
+        """
+        Удаление прав доступа Пользователя из Redis.
+
+        :param user_id:
+        :type user_id: str
+
+        :return:
+        :rtype: None
+        """
         async with redis_context_manager() as redis_client:
             try:
                 await redis_client.delete(

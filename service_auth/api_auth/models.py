@@ -17,15 +17,56 @@ class UsersRole(Enum):
 
     @classmethod
     def values(cls) -> list[str]:
+        """
+        Массив значений.
+
+        :return:
+        :rtype: list[str]
+        """
         return [item.value for item in cls]
 
     @classmethod
     def choices(cls) -> list[tuple[str, str]]:
+        """
+        Choices.
+
+        :return:
+        :rtype: list[tuple[str, str]]
+        """
         return [(item.value, item.name.capitalize()) for item in cls]
 
     @classmethod
     def high_lvl_users_roles(cls) -> tuple[str, ...]:
+        """
+        Высокоуровневые роли Пользователей.
+
+        :return:
+        :rtype: tuple[str, ...]
+        """
         return cls.SUPERUSER.value, cls.ADMIN.value
+
+    @classmethod
+    def get_permissions_on_create(cls, role: str) -> tuple[str, ...]:
+        """
+        Определение иерархии создания пользователя другими пользователями.
+
+        :param role:
+        :type role: str
+
+        :return:
+        :rtype: tuple[str, ...]
+        """
+        permissions_on_create = {
+            cls.USER.value: (cls.USER.value, ),
+            cls.ADMIN.value: (cls.USER.value,cls.ADMIN.value),
+            cls.SUPERUSER.value: (
+                cls.USER.value,
+                cls.ADMIN.value,
+                cls.SUPERUSER.value,
+            ),
+        }
+
+        return permissions_on_create.get(role, ())
 
 
 class UUIDMixin(models.Model):
@@ -55,20 +96,32 @@ class DatetimeStampedMixin(models.Model):
     )
 
     def soft_delete(self) -> None:
-        """Мягкое удаление сущности."""
+        """
+        Мягкое удаление сущности.
 
+        :return:
+        :rtype: None
+        """
         self.deleted_at = timezone.now()
         self.save()
 
     def soft_update(self) -> None:
-        """Обновление/восстановление сущности."""
+        """
+        Обновление/восстановление сущности.
 
+        :return:
+        :rtype: None
+        """
         self.deleted_at = None
         self.save()
 
     def is_active(self) -> bool:
-        """Проверка - сущность активна."""
+        """
+        Проверка - сущность активна.
 
+        :return:
+        :rtype: bool
+        """
         return self.deleted_at is None
 
     class Meta:
@@ -114,8 +167,12 @@ class User(UUIDMixin, DatetimeStampedMixin):
 
     @property
     def email_dec(self) -> str:
-        """Дешифровка email."""
+        """
+        Дешифрованный email.
 
+        :return:
+        :rtype: str
+        """
         return Cryptor.decrypt_str(
             str_=self.email_enc,
             password=settings.EMAIL_MASTER_PASSWORD,

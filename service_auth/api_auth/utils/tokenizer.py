@@ -11,7 +11,7 @@ from .custom_dataclasses import TokenInfo, TokenPayload, Tokens
 
 
 class Tokenizer:
-    """Utils - работа с токенами Пользователя."""
+    """Utils - работа с токенами."""
 
     header = {"algorithm": settings.TOKEN_ALGORITHM, "type": "JWT"}
     token_key_template = "{user_id}${user_agent}${token_type}"
@@ -27,6 +27,25 @@ class Tokenizer:
         user_role: str,
         user_agent: str,
     ) -> str | Any:
+        """
+        Генерирование токена.
+
+        :param type_: Тип токена.
+        :type type_: str
+        :param now_: Дата и время создания токена.
+        :type now_: datetime
+        :param exp_:
+        :type exp_: float
+        :param sub: Сущность, для которой создается токен (Пользователь).
+        :type sub: str
+        :param user_role:
+        :type user_role: str
+        :param user_agent:
+        :type user_agent: str
+
+        :return:
+        :rtype: str | Any
+        """
         payload = TokenPayload(
             type=type_,
             iat=now_.timestamp(),
@@ -49,6 +68,19 @@ class Tokenizer:
         user_role: str,
         user_agent: str,
     ) -> Tokens:
+        """
+        Генерирование токенов (Access/Refresh).
+
+        :param user_id:
+        :type user_id: str
+        :param user_role:
+        :type user_role: str
+        :param user_agent:
+        :type user_agent: str
+
+        :return:
+        :rtype: Tokens
+        """
         now_ = datetime.now(UTC)
         access_exp = (
             now_ + timedelta(minutes=settings.ACCESS_TOKEN_EXP_MIN)
@@ -86,6 +118,15 @@ class Tokenizer:
 
     @staticmethod
     def decode_token(token: str) -> TokenPayload:
+        """
+        Декодирование токена и получение payload.
+
+        :param token:
+        :type token: str
+
+        :return:
+        :rtype: TokenPayload
+        """
         try:
             token_data: dict[str, Any] = jwt.decode(
                 token=token,

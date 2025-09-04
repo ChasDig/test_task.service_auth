@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.db.models import Q
@@ -18,11 +20,19 @@ from .utils.custom_exception import TokenDataInvalidError
 
 # --- User --- #
 class UserCreateSerializer(serializers.ModelSerializer):
+    """Serializer - создание Пользователя."""
 
     @staticmethod
-    def validate_unique_email(value: str):
-        """Проверка уникальности email Пользователя."""
+    def validate_unique_email(value: str) -> str:
+        """
+        Проверка уникальности email Пользователя.
 
+        :param value:
+        :type value: str
+
+        :return:
+        :rtype: str
+        """
         email_hash = Hasher.hash_str(
             str_=value,
             password=settings.EMAIL_MASTER_PASSWORD,
@@ -36,7 +46,16 @@ class UserCreateSerializer(serializers.ModelSerializer):
         return value
 
     @staticmethod
-    def validate_role(value: str):
+    def validate_role(value: str) -> str:
+        """
+        Проверка роли Пользователя.
+
+        :param value:
+        :type value: str
+
+        :return:
+        :rtype: str
+        """
         if value not in UsersRole.values():
             raise serializers.ValidationError("Указанная роль не существует")
 
@@ -83,12 +102,23 @@ class UserCreateSerializer(serializers.ModelSerializer):
             "email_dec",
         ]
 
-    def validate(self, data):
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Доп. валидация параметров:
+        - Обе попытки ввода пароля должны быть схожи.
+        - Пользователей с высоким уровнем роли может создавать только
+        авторизованный пользователь с высокой ролью согласно иерархии.
+
+        :param data:
+        :type data: dict[str, Any]
+
+        :return:
+        :rtype: dict[str, Any]
+        """
         if data["password_first_try"] != data["password_second_try"]:
             raise serializers.ValidationError("Пароли не совпадают")
 
-        high_lvl_users_roles = UsersRole.high_lvl_users_roles()
-        if data["role"] in high_lvl_users_roles:
+        if data["role"] in UsersRole.high_lvl_users_roles():
             try:
                 request = self.context.get("request")
                 access_token = request.get_signed_cookie(TokenType.access.name)
@@ -100,7 +130,11 @@ class UserCreateSerializer(serializers.ModelSerializer):
                     "авторизоваться"
                 )
 
-            if access_token_payload.user_role not in high_lvl_users_roles:
+            user_role = access_token_payload.user_role
+            if (
+                data["role"] not in
+                UsersRole.get_permissions_on_create(user_role)
+            ):
                 raise serializers.ValidationError(
                     "У вас не хватает прав для создания пользователя с "
                     "указанной ролью"
@@ -108,7 +142,16 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
         return data
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> User:
+        """
+        Создание Пользователя.
+
+        :param validated_data:
+        :type validated_data: dict[str, Any]
+
+        :return:
+        :rtype: User
+        """
         email = validated_data["email"]
         user = User(
             first_name=validated_data["first_name"],
@@ -130,9 +173,14 @@ class UserCreateSerializer(serializers.ModelSerializer):
         return user
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer - обновление Пользователя."""
 
     id = serializers.CharField(max_length=256)
-    email = serializers.EmailField(write_only=True, max_length=128)
+    email = serializers.EmailField(
+        write_only=True,
+        max_length=128,
+        default=None,
+    )
     password_first_try = serializers.CharField(
         write_only=True,
         max_length=128,
@@ -165,7 +213,19 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             "email_dec",
         ]
 
-    def validate(self, data):
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Доп. валидация параметров:
+        - Если обновляется пароль, то обе попытки его ввода должны быть схожи.
+        - Если обновляется email, то он не должен быть среди email других
+        Пользователей.
+
+        :param data:
+        :type data: dict[str, Any]
+
+        :return:
+        :rtype: dict[str, Any]
+        """
         update_pass = (
             data.get("password_first_try") and data.get("password_second_try")
         )
@@ -175,24 +235,36 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         ):
             raise serializers.ValidationError("Пароли не совпадают")
 
-        email_hash = Hasher.hash_str(
-            str_=data["email"],
-            password=settings.EMAIL_MASTER_PASSWORD,
-        )
-        if (
-            User.objects.filter(
-                email_hash=email_hash,
-            ).exclude(
-                id=data["id"],
-            ).exists()
-        ):
-            raise serializers.ValidationError(
-                "Пользователь с таким email уже существует",
+        if new_email := data.get("email"):
+            email_hash = Hasher.hash_str(
+                str_=new_email,
+                password=settings.EMAIL_MASTER_PASSWORD,
             )
+            if (
+                User.objects.filter(
+                    email_hash=email_hash,
+                ).exclude(
+                    id=data["id"],
+                ).exists()
+            ):
+                raise serializers.ValidationError(
+                    "Пользователь с таким email уже существует",
+                )
 
         return data
 
-    def update(self, instance, validated_data):
+    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        """
+        Обновление Пользователя.
+
+        :param instance:
+        :type instance: User
+        :param validated_data:
+        :type validated_data: dict[str, Any]
+
+        :return:
+        :rtype: User
+        """
         for attr, value in validated_data.items():
             if attr == "email":
                 email_enc_ = Cryptor.encrypt_str(str_=value)
@@ -216,6 +288,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
 # --- Auth --- #
 class LoginSerializer(serializers.Serializer):
+    """Serializer - авторизация Пользователя."""
 
     email = serializers.EmailField(write_only=True, max_length=128)
     password = serializers.CharField(
@@ -224,12 +297,17 @@ class LoginSerializer(serializers.Serializer):
     )
 
 class LogoutSerializer(serializers.Serializer):
+    """Serializer - ре-авторизация Пользователя."""
 
-    all_device = serializers.BooleanField(default=False)
+    all_device = serializers.BooleanField(
+        default=False,
+        help_text="Флаг - требуется ли ре-авторизоваться со всех устройств",
+    )
 
 
 # --- Group --- #
 class GroupCreateSerializer(serializers.ModelSerializer):
+    """Serializer - создание Группы."""
 
     title = serializers.CharField(max_length=128)
     alias = serializers.CharField(max_length=128)
@@ -239,7 +317,17 @@ class GroupCreateSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "alias"]
         read_only_fields = ["id", ]
 
-    def validate(self, data):
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Доп. валидация параметров:
+        - Валидация уникальности Группы.
+
+        :param data:
+        :type data: dict[str, Any]
+
+        :return:
+        :rtype: dict[str, Any]
+        """
         if Group.objects.filter(
             (
                 Q(title=data["title"]) | Q(alias=data["alias"])
@@ -252,7 +340,16 @@ class GroupCreateSerializer(serializers.ModelSerializer):
 
         return data
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> Group:
+        """
+        Создание Группы.
+
+        :param validated_data:
+        :type validated_data: dict[str, Any]
+
+        :return:
+        :rtype: Group
+        """
         group = Group(
             title=validated_data["title"],
             alias=validated_data["alias"],
@@ -264,6 +361,7 @@ class GroupCreateSerializer(serializers.ModelSerializer):
 
 # --- PermissionByGroup --- #
 class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
+    """Serializer - выделение Группе прав к ресурсу."""
 
     uri = serializers.CharField(max_length=256)
     uri_name = serializers.CharField(max_length=256)
@@ -279,7 +377,17 @@ class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
         fields = ["id", "uri", "uri_name", "group_id", "comment"]
         read_only_fields = ["id", ]
 
-    def validate(self, data):
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Доп. валидация параметров:
+        - Проверка наличия у Группы выделяемого доступа к ресурсу.
+
+        :param data:
+        :type data: dict[str, Any]
+
+        :return:
+        :rtype: dict[str, Any]
+        """
         group = get_object_or_404(Group, pk=data["group_id"])
 
         if PermissionByGroup.objects.filter(
@@ -296,7 +404,16 @@ class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
 
         return data
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> PermissionByGroup:
+        """
+        Выделение группе прав доступа к ресурсу.
+
+        :param validated_data:
+        :type validated_data: dict[str, Any]
+
+        :return:
+        :rtype: PermissionByGroup
+        """
         permission_by_group = PermissionByGroup(
             uri=validated_data["uri"],
             uri_name=validated_data["uri_name"],
@@ -312,6 +429,7 @@ class PermissionByGroupCreateSerializer(serializers.ModelSerializer):
 class UserByGroupAssociationCreateSerializer(
     serializers.ModelSerializer,
 ):
+    """Serializer - связка Пользователя с Группой."""
 
     user_id = serializers.CharField()
     group_id = serializers.CharField()
@@ -321,7 +439,17 @@ class UserByGroupAssociationCreateSerializer(
         fields = ["id", "user_id", "group_id"]
         read_only_fields = ["id", ]
 
-    def validate(self, data):
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Доп. валидация параметров:
+        - Проверка связки Пользователя с Группой.
+
+        :param data:
+        :type data: dict[str, Any]
+
+        :return:
+        :rtype: dict[str, Any]
+        """
         user = get_object_or_404(User, pk=data["user_id"])
         group = get_object_or_404(Group, pk=data["group_id"])
 
@@ -340,7 +468,16 @@ class UserByGroupAssociationCreateSerializer(
 
         return data
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> UserByGroupAssociation:
+        """
+        Связка пользователя с группой.
+
+        :param validated_data:
+        :type validated_data: dict[str, Any]
+
+        :return:
+        :rtype: UserByGroupAssociation
+        """
         user_by_group_association = UserByGroupAssociation(
             user=validated_data["user"],
             group=validated_data["group"],

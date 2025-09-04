@@ -16,13 +16,13 @@ class Hasher:
         """
         Хеширование пароля благодаря функции формирования ключа PBKDF2-HMAC.
 
-        @type password: str
-        @param password: Мастер-пароль (в открытом виде).
-        @type salt: bytes
-        @param salt: Соль.
+        :param password: Мастер-пароль (в открытом виде).
+        :type password: str
+        :param salt:
+        :type salt: bytes
 
-        @rtype: bytes
-        @return:
+        :return:
+        :rtype: bytes
         """
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -38,13 +38,13 @@ class Hasher:
         """
         Хеширование строки.
 
-        @type str_: str
-        @param str_:
-        @type password: str
-        @param password: Пароль в открытом виде.
+        :param str_:
+        :type str_: str
+        :param password: Пароль в открытом виде.
+        :type password: str
 
-        @rtype: str
-        @return:
+        :return:
+        :rtype: str
         """
         normalize_str = str_.lower().strip()
 

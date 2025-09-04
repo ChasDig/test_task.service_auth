@@ -11,6 +11,7 @@ from .utils.mixins import TokenizerWorkMixin, UsersPermissionsWorkMixin
 
 
 class CookieAccessTokenPermission(BasePermission, TokenizerWorkMixin):
+    """Permission - Пользователь имеет AccessToken в Cookies."""
 
     def has_permission(self, request, view) -> bool:
         try:
@@ -33,6 +34,7 @@ class CookieAccessTokenPermission(BasePermission, TokenizerWorkMixin):
 
 
 class CookieTokensPermission(BasePermission, TokenizerWorkMixin):
+    """Permission - Пользователь имеет Access/RefreshToken в Cookies."""
 
     def has_permission(self, request, view) -> bool:
         try:
@@ -77,6 +79,7 @@ class CookieTokensPermission(BasePermission, TokenizerWorkMixin):
 
 
 class IsSelfOrAdminPermission(BasePermission):
+    """Permission - запрос совершает сам Пользователь или Admin/Superuser."""
 
     def has_permission(self, request, view) -> bool:
         try:
@@ -100,6 +103,7 @@ class IsSelfOrAdminPermission(BasePermission):
 
 
 class IsAdminPermission(BasePermission):
+    """Permission - запрос совершает Admin/Superuser."""
 
     def has_permission(self, request, view) -> bool:
         try:
@@ -118,6 +122,7 @@ class IsAdminPermission(BasePermission):
 
 
 class ChangeUserRolePermission(BasePermission):
+    """Permission - проверка права менять роль Пользователя."""
 
     def has_permission(self, request, view) -> bool:
         user_role = request.data.get("role")
@@ -141,6 +146,7 @@ class ChangeUserRolePermission(BasePermission):
         return True
 
 class UserPermissionByGroup(BasePermission, UsersPermissionsWorkMixin):
+    """Permission - проверка доступа к ресурсу по группе прав Пользователя."""
 
     def has_permission(self, request, view) -> bool:
         access_token = request.get_signed_cookie(TokenType.access.name)

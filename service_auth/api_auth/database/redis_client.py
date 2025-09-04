@@ -42,15 +42,14 @@ class RedisClient:
         """
         Прослойка - вставка значений в Redis.
 
-        @type key: str
-        @param key:
-        @type value: str | dict[str, str | int]
-        @param value:
-        @type ttl: int | None
-        @param ttl:
-
-        @rtype: None
-        @return:
+        :param key:
+        :type key: str
+        :param value:
+        :type value: str | dict[str, str | int]
+        :param ttl:
+        :type ttl: int | None
+        :return:
+        :rtype: None
         """
         if isinstance(value, dict):
             value = json.dumps(value)
@@ -70,13 +69,12 @@ class RedisClient:
         """
         Прослойка - получение значений из Redis.
 
-        @type key: str | bytes | bytearray
-        @param key:
-        @type as_dict: bool
-        @param as_dict: Флаг - для получаемых значений требуется сериализация.
-
-        @rtype value: dict[str, str | int] | str | None
-        @return value:
+        :param key:
+        :type key: str | bytes | bytearray
+        :param as_dict: Флаг - для получаемых значений требуется сериализация.
+        :type as_dict: bool
+        :return:
+        :rtype: dict[str, str | int] | str | None
         """
         try:
             value = await self._client.get(key)
@@ -98,11 +96,10 @@ class RedisClient:
         """
         Прослойка - удаление значений из Redis.
 
-        @type key: str
-        @param key:
-
-        @rtype: None
-        @return:
+        :param key:
+        :type key: str
+        :return:
+        :rtype: None
         """
         try:
             await self._client.delete(key)
@@ -128,8 +125,8 @@ async def redis_context_manager() -> AsyncGenerator[RedisClient, Any]:
     """
     Асинхронный контекстный менеджер для получения активного клиента Redis.
 
-    @rtype: AsyncGenerator[RedisClient, Any]
-    @return:
+    :return:
+    :rtype: AsyncGenerator[RedisClient, Any]
     """
     client = RedisClient()
 

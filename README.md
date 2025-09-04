@@ -48,7 +48,7 @@ TODO:
 
 ## Code Style:
 - **PEP8**(https://peps.python.org/pep-0008/);
-- Docstring-формат - **Google Style Docstrings**(https://google.github.io/styleguide/pyguide.html);
+- Docstring-формат - **reStructuredText (reST)**;
 - Linters: **Flake8**(https://flake8.pycqa.org/en/latest/);
 - Pre-commits(https://pre-commit.com/):
 - - **black** - авто-форматирование кода;

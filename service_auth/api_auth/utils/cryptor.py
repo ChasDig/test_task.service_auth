@@ -15,13 +15,13 @@ class Cryptor:
         """
         Шифрование строки.
 
-        @type str_: str
-        @param str_:
-        @type password: str | None
-        @param password: Мастер-пароль (в открытом виде).
+        :param str_:
+        :type str_: str
+        :param password:  Мастер-пароль (в открытом виде).
+        :type password:  str | None
 
-        @rtype: str
-        @return:
+        :return:
+        :rtype: str
         """
         salt = os.urandom(settings.SALT_LENGTH_BYTES)
         nonce = os.urandom(settings.NONCE_LENGTH_BYTES)
@@ -41,13 +41,13 @@ class Cryptor:
         """
         Расшифровывание строки.
 
-        @type str_: str
-        @param str_:
-        @type password: str | None
-        @param password: Мастер-пароль (в открытом виде).
+        :param str_:
+        :type str_: str
+        :param password:  Мастер-пароль (в открытом виде).
+        :type password:  str | None
 
-        @rtype: str
-        @return:
+        :return:
+        :rtype: str
         """
         if password is None:
             password = settings.EMAIL_MASTER_PASSWORD
